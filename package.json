@@ -1,0 +1,24 @@
+{
+  "name": "school_bot",
+  "version": "0.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mkulik05/school_bot.git"
+  },
+  "author": "mkulik05",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mkulik05/school_bot/issues"
+  },
+  "homepage": "https://github.com/mkulik05/school_bot#readme",
+  "dependencies": {
+    "jsdom": "^16.4.0",
+    "node-calendar": "^0.1.5",
+    "request-promise": "^4.2.6"
+  }
+}

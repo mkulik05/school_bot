@@ -1,4 +1,4 @@
-let creds = require("./creditionals");
+let creds = require("./creditionals.json");
 let request = require('request-promise');
 
 let login = async () => {
@@ -31,9 +31,8 @@ let login = async () => {
       console.log("get_session_id callback ", error)
     }
   }    
-  res = creds.creditionals()
-  let dataString =  `csrfmiddlewaretoken=${res[0]}&username=${res[1]}&password=${res[2]}`;
-
+  
+  let dataString =  `csrfmiddlewaretoken=${creds.token}&username=${creds.login}&password=${creds.password}`;
   let options = {
     url: "https://schools.by/login",
     method: "POST",
@@ -55,7 +54,7 @@ let login = async () => {
 
 let logout = (sessionID) => {
   var headers = {
-    'cookie': sessionID
+    'cookie': 'sessionid=' + sessionID
   };
 
   var options = {
