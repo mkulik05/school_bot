@@ -1,75 +1,49 @@
-let session = require("./get_session_id");
-let html = require("./get_html");
+let get_data = require("./get_data");
 const last_holidays_day = new Date("Mon Jan 11 2021 00:00:00 GMT+0300 (Moscow Standard Time)")
-var fs = require('fs');
-const jsdom = require("jsdom");
-const { JSDOM } = jsdom;
-let format_date = (c_date) => {
-  let date = new Date(c_date)
-  let month = monday.getMonth()+1
-  month = month < 10 ? "0" +month : month
-  date = date.getFullYear() + "-" + month + "-" + date.toDateString().split(" ")[2]
-  return date
+const last_quarter_day = new Date("Fri Mar 28 2021 23:59:59 GMT+0300 (Moscow Standard Time)")
+let main = async () => {
+    res = await get_data.data(last_holidays_day, last_quarter_day)
+
+    console.log(res, res.length)
+    run(res).catch(console.dir);
 }
-let res  = async () => {
-  let struct = {}
-  let id = await session.login()
-  while (id === 0) {
-    id = await session.login()
-  }
-  console.log(id)
-  let addDays = (date, days) => {
-    var result = new Date(date);
-    result.setDate(result.getDate() + days);
-    return result;
-  }
-  let date_now = new Date()
-  monday = addDays(date_now, 1-date_now.getDay())
-  while (true){
-    let date = format_date(monday)
-    //console.log(date)
-    let data = await html.html(id, `https://gymn36.schools.by/pupil/1385935/dnevnik/quarter/43/week/${date}`)
-    const dom = new JSDOM(data);
-    let tables = dom.window.document.getElementsByTagName("table")
-    //console.log(tables[0].getElementsByClassName("mark_box ")[7].textContent)
-    let curr_date = monday 
-    for (let i = 0; i < tables.length - 1; i++){
-      if (addDays(monday, i) > last_holidays_day) {
-        let fcurr_date = format_date(curr_date)
-        struct[fcurr_date] = {}
-        let table = tables[i]
-        let lessons = table.getElementsByClassName("lesson ")
-        for (let l = 1; l < lessons.length; l++){
-          let les = lessons[l].textContent.replace(/\s/g, "").slice(2)
-          if (les != "") {
-            let hw = ""
-            try {
-              hw = lessons[l].parentElement.getElementsByClassName("ht-text")[0].textContent.replace(/\n/g, "")
-              hw = hw.replace(/  /g, "")
-            } catch(e) {
-              //console.log(e)
-            }
-            let mark = table.getElementsByClassName("mark_box ")[l-1].textContent.replace(/\s/g, "")
-            
-            struct[fcurr_date][les] = {}
-            struct[fcurr_date][les]["hw"] = hw
-            struct[fcurr_date][les]["mark"] = mark == '' ? 0 : parseInt(mark)
-          }
-          //console.log(lessons[l].textContent.replace(/\s/g, ""), hw ,table.getElementsByClassName("mark_box ")[l-1].textContent.replace(/\s/g, ""))
+
+const { MongoClient } = require("mongodb");
+ 
+// Replace the following with your Atlas connection string                                                                                                                                        
+const url = "mongodb+srv://mkulik05:SfjB-u4JxARJ-%21.@cluster0.hvnia.mongodb.net/test?authSource=admin&replicaSet=atlas-zd20rv-shard-0&readPreference=primary&appname=MongoDB%20Compass&ssl=true";
+const client = new MongoClient(url);
+ 
+ // The database to use
+ const dbName = "school_bot";
+                      
+ async function run(data) {
+    try {
+         await client.connect();
+         console.log("Connected correctly to server");
+         const db = client.db(dbName);
+
+         // Use the collection "people"
+         const col = db.collection("test");
+
+         await col.insertMany(data);
+         //console.log(p)
+         const b = await col.findOne({}, {sort:{created: -1}});
+         console.log(b)
+        //  b.forEach(el =>{
+        //     console.log(el["created"]) 
+        //  })
+        //  console.log(typeof b)
+        } catch (err) {
+         console.log(err.stack);
         }
-
-      }
-      curr_date = addDays(curr_date, 1)
-  }
-  if (monday <= last_holidays_day){
-    break
-  }
-  monday = addDays(monday, -7)
-  //console.log("\n\n\n\n")
-
-} 
-  session.logout(id)
-  console.log(struct)
+ 
+     finally {
+        await client.close();
+     }
 }
 
-res()
+
+
+main()
+
