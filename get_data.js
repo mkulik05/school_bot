@@ -64,7 +64,8 @@ let res  = async (last_holidays_day, date_now) => {
           
           //console.log(lessons[l].textContent.replace(/\s/g, ""), hw ,table.getElementsByClassName("mark_box ")[l-1].textContent.replace(/\s/g, ""))
         }
-        struct.push(unstruct)
+          struct.push(unstruct)
+        
 
       }
       curr_date = addDays(curr_date, 1)
@@ -78,7 +79,6 @@ let res  = async (last_holidays_day, date_now) => {
 } 
   session.logout(id)
   //console.log(struct)
-  struct["created"] = new Date()
   return struct
 }
 

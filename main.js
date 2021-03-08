@@ -25,14 +25,31 @@ const client = new MongoClient(url);
 
          // Use the collection "people"
          const col = db.collection("test");
-
-         await col.insertMany(data);
+         for(let i = 0; i < data.length; i++){
+            let el = data[i]
+            let str = Object.keys(el)[0]
+            let result = await col.findOne({[str]: {$exists: true}})
+            if (result == null){
+               await col.insertOne(el);
+               console.log("null")
+            } else {
+               if (JSON.stringify(result[str]) != JSON.stringify(el[str])){
+                  await col.replaceOne({[str]: {$exists: true}}, el);
+                  console.log("not eq - ")
+                  // console.log(JSON.stringify(result[str]))
+                  // console.log(JSON.stringify(el[str]), "\n\n")
+               } else{
+                  console.log("eq")
+               }
+            }
+         }
+         //await col.insertMany(data);
          //console.log(p)
-         const b = await col.findOne({}, {sort:{created: -1}});
-         console.log(b)
-        //  b.forEach(el =>{
-        //     console.log(el["created"]) 
-        //  })
+         //const b = await col.find({}, {sort:{created: -1}}).limit(60);
+//         console.log(b)
+         // b.forEach(el =>{
+         //    console.dir(el) 
+         // })
         //  console.log(typeof b)
         } catch (err) {
          console.log(err.stack);
