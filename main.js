@@ -1,66 +1,35 @@
-let get_data = require("./get_data");
-const last_holidays_day = new Date("Mon Jan 11 2021 00:00:00 GMT+0300 (Moscow Standard Time)")
-const last_quarter_day = new Date("Fri Mar 28 2021 23:59:59 GMT+0300 (Moscow Standard Time)")
-let main = async () => {
-    res = await get_data.data(last_holidays_day, last_quarter_day)
+const { Telegraf } = require("telegraf");
+const mongo_creds = require("./mongo_creds.json");
+const bot_token = require("./bot_token.json");
+const last_holidays_day = new Date(
+  "Mon Jan 11 2021 00:00:00 GMT+0300 (Moscow Standard Time)"
+);
+const last_quarter_day = new Date(
+  "Fri Mar 28 2021 23:59:59 GMT+0300 (Moscow Standard Time)"
+);
+let id = 788266160
+const bot = new Telegraf(bot_token.token);
+let db = require("./db")
 
-    console.log(res, res.length)
-    run(res).catch(console.dir);
+bot.start((ctx) => {
+  ctx.reply("Привет! Этот бот поможет с электронным дневником")
+  console.log(ctx.chat.id)
+})
+
+bot.help((ctx) => ctx.reply("Send me a sticker"));
+bot.on("sticker", (ctx) => ctx.reply("👍"));
+bot.hears("hi", (ctx) => ctx.reply("Hey there"));
+
+let check_for_updates = async () => {
+  res = await db.update_db(last_holidays_day, last_quarter_day, mongo_creds, 43)
+  for (let i = 0; i < res.length; i++) {
+    bot.telegram.sendMessage(id, res[i])
+
+  }
+  //console.log(res)
 }
+setInterval(()=> {
+  check_for_updates()
+}, 30000)
 
-const { MongoClient } = require("mongodb");
- 
-// Replace the following with your Atlas connection string                                                                                                                                        
-const url = "mongodb+srv://mkulik05:SfjB-u4JxARJ-%21.@cluster0.hvnia.mongodb.net/test?authSource=admin&replicaSet=atlas-zd20rv-shard-0&readPreference=primary&appname=MongoDB%20Compass&ssl=true";
-const client = new MongoClient(url);
- 
- // The database to use
- const dbName = "school_bot";
-                      
- async function run(data) {
-    try {
-         await client.connect();
-         console.log("Connected correctly to server");
-         const db = client.db(dbName);
-
-         // Use the collection "people"
-         const col = db.collection("test");
-         for(let i = 0; i < data.length; i++){
-            let el = data[i]
-            let str = Object.keys(el)[0]
-            let result = await col.findOne({[str]: {$exists: true}})
-            if (result == null){
-               await col.insertOne(el);
-               console.log("null")
-            } else {
-               if (JSON.stringify(result[str]) != JSON.stringify(el[str])){
-                  await col.replaceOne({[str]: {$exists: true}}, el);
-                  console.log("not eq - ")
-                  // console.log(JSON.stringify(result[str]))
-                  // console.log(JSON.stringify(el[str]), "\n\n")
-               } else{
-                  console.log("eq")
-               }
-            }
-         }
-         //await col.insertMany(data);
-         //console.log(p)
-         //const b = await col.find({}, {sort:{created: -1}}).limit(60);
-//         console.log(b)
-         // b.forEach(el =>{
-         //    console.dir(el) 
-         // })
-        //  console.log(typeof b)
-        } catch (err) {
-         console.log(err.stack);
-        }
- 
-     finally {
-        await client.close();
-     }
-}
-
-
-
-main()
-
+bot.launch();
