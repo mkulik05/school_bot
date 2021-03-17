@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/mkulik05/school_bot#readme",
   "dependencies": {
+    "bunyan": "^1.8.15",
     "jsdom": "^16.4.0",
     "mongodb": "^3.6.4",
     "node-calendar": "^0.1.5",

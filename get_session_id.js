@@ -1,9 +1,10 @@
-let creds = require("./creditionals.json");
 let request = require("request-promise");
-
-let login = async () => {
+const logger = require("./logger")("login")
+let login = async (creds) => {
+  logger.info("called login function")
+  logger.debug(`username = ${creds.login}`)
   let json = "";
-  let err = "";
+  //let err = "";
   let headers = {
     authority: "schools.by",
     "cache-control": "max-age=0",
@@ -25,10 +26,12 @@ let login = async () => {
   };
 
   let callback = async (error, response, body) => {
+    logger.info(` called login request callback, responce status `, response.statusCode)
     if (!error) {
       json = response.headers;
     } else {
-      console.log("get_session_id callback ", error);
+      logger.error(`error in login request callback`, error)
+      //console.log("get_session_id callback ", error);
     }
   };
 
@@ -42,17 +45,28 @@ let login = async () => {
   try {
     await request(options, callback);
   } catch (e) {
-    console.log("planned err");
+    //console.log("planned err");
     //console.log(json)
+    logger.error("error", e)
   }
   if (json != "") {
-    return json["set-cookie"][1].split(";")[0].split("=")[1];
+    logger.info("start parsering json to get session ID")
+    try {
+
+      let r =  json["set-cookie"][1].split(";")[0].split("=")[1];
+      logger.info("json parsed successfully")
+      return r
+    } catch(e) {
+      logger.error("error in parsering resp json ", e)
+    }
   } else {
+    logger.warn("json is empty(, return 0")
     return 0;
   }
 };
 
 let logout = (sessionID) => {
+  logger.info("called logout func")
   var headers = {
     cookie: "sessionid=" + sessionID,
   };
@@ -63,8 +77,11 @@ let logout = (sessionID) => {
   };
 
   function callback(error, response, body) {
+    logger.info("called logout request callback, responce status code = ", response.statusCode)
     if (!error) {
       console.log("logout");
+    } else {
+      logger.error("error in logout request callback ", error)
     }
   }
 
