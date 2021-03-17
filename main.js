@@ -119,6 +119,6 @@ let check_for_updates = async () => {
 //console.log(res)
 setInterval(() => {
   check_for_updates();
-}, 1000 * 10);
+}, 1000 * 60 * 10);
 check_for_updates();
 bot.launch();
