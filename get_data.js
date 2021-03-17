@@ -22,7 +22,7 @@ let res = async (creds, last_holidays_day, date_now, quarter_ind) => {
   let id = await session.login(creds);
   while (id === 0) {
     logger.info("call login() func")
-    id = await session.login();
+    id = await session.login(creds);
   }
   //console.log(id);
   let addDays = (date, days) => {
