@@ -7,11 +7,13 @@ let log = bunyan.createLogger({
     // },
     {
       level: 30,
-      path: "logs.log"
+      path: "logs.log",
+      period: '1d',
     },
     {
       level: 20,
-      path: "detailed_logs.log"
+      path: "detailed_logs.log",
+      period: '1d'
     },
   ],
 });
