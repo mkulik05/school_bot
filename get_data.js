@@ -7,7 +7,7 @@ let format_date = (c_date) => {
   logger.info("function format_date called")
   logger.debug("c_date =", c_date)
   let date = new Date(c_date);
-  let month = monday.getMonth() + 1;
+  let month = date.getMonth() + 1;
   month = month < 10 ? "0" + month : month;
   date =
     date.getFullYear() + "-" + month + "-" + date.toDateString().split(" ")[2];
@@ -26,7 +26,7 @@ let res = async (last_holidays_day, date_now, quarter_ind, id, pupil_id, tg_id) 
     logger.debug({tg_id:tg_id}, "start date ", date, "days =", days, "result -", result)
     return result;
   };
-  monday = addDays(date_now, 1 - date_now.getDay());
+  let monday = addDays(date_now, 1 - date_now.getDay());
   logger.debug({tg_id:tg_id}, "monday =", monday)
   while (true) {
     let date = format_date(monday);

@@ -2,7 +2,7 @@ let request = require("request-promise");
 const logger = require("./logger")("get html")
 let get_html = async (id, path) => {
   logger.info(`called function get_html, path = ${path}`)
-  var headers = {
+  let headers = {
 
     cookie: "sessionid=" + id,
   };
@@ -11,7 +11,6 @@ let get_html = async (id, path) => {
     url: path,
     headers: headers,
   };
-
   let callback = (error, res, body) => {
     logger.info("called request callback, response status code ", res.statusCode)
     if (!error) {

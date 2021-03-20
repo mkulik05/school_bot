@@ -6,7 +6,7 @@ const url =
 const dbName = "school_bot";
 
 
-let get_creds = async (creds = {}) => {
+let get_creds = async () => {
   const client = new MongoClient(url, { useUnifiedTopology: true });
   logger.info("created new mongo client(get_creds)");
   try {
@@ -14,28 +14,12 @@ let get_creds = async (creds = {}) => {
     const db = client.db(dbName);
     let col = db.collection("creds");
     if (col == null) {
-      await db.createCollection("creds", (err, res) => {
-        if (err) {
-          logger.error("error in creating collection", err);
-        }
-        logger.info("system collection created!");
-        db.close();
-      });
+      return 0
     }
-    let result = await col.findOne({ creds: { $exists: true } });
+
+    let result = await col.findOne({});
     //logger.debug("result", result)
-    if (result == null) {
-      await col.insertOne({ creds: creds });
-      return {};
-    } else {
-      if (Object.keys(result.creds).length <= Object.keys(creds).length) {
-        await col.replaceOne({ creds: { $exists: true } }, { creds: creds });
-        return creds;
-      } else {
-        creds = result.creds;
-        return creds;
-      }
-    }
+    return result
   } catch (err) {
     logger.error("error", err.stack);
   } finally {

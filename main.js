@@ -1,10 +1,12 @@
 const { Telegraf } = require("telegraf");
-const creds = require("./creditionals.json");
+const { Keyboard } = require('telegram-keyboard')
+
+//const creds = require("./creditionals.json");
 const mongo_creds = require("./mongo_creds.json");
 const bot_token = require("./bot_token.json");
 let session = require("./login");
 let db_ids = require("./sync_ids_db");
-let html = require("./get_html");
+let db_creds = require("./sync_creds_db");
 let get_data = require("./get_data");
 const logger = require("./logger")("main");
 const last_holidays_day = new Date(
@@ -16,37 +18,97 @@ const last_quarter_day = new Date(
 const bot = new Telegraf(bot_token.token);
 const db = require("./db");
 let ids = [];
-
+let creds = {}
 bot.start((ctx) => {
   ctx.reply(
     "Привет! Этот бот поможет с электронным дневником",
-    Markup.keyboard([["Войти"]])
-      .oneTime()
-      .resize()
-      .extra()
+    Keyboard.make([
+      ['Войти', 'Обновить'],
+    ]).reply()
   );
-  let id = ctx.chat.id;
-  //console.log(ids);
-  if (!ids.includes(id)) ids.push(id);
-  db_creds.sync_ids_list(ids);
-  console.log(ids);
+  // let id = ctx.chat.id;
+  // console.log(ids);
+  // if (!ids.includes(id)) ids.push(id);
+  // db_ids(ids);
+  // console.log(ids);
 });
-bot.hears("Войти", (ctx) => {
-  let id = ctx.chat.id;
-  if (Object.keys(creds).includes(id)) {
+bot.hears("Перевойти", async (ctx) => {
+  let id = ctx.chat.id
+  await bot.telegram.sendMessage(id, `Вам нужно войти в учётную запись своего дневника\n\nВнимание, войдя в свою учётную запись, даёте права на использование ваших данных(telegram id, пароль, логин)\n\nВаш регистрационный токен:`)
+  await bot.telegram.sendMessage(id, id)
+  ctx.reply(
+    `Страница входа: `+"https://schoolbot.ml/",
+    Keyboard.make(["Я вошёл"]).reply()
+  );
+})
+bot.hears("Я вошёл", async (ctx) => {
+  creds = await db_creds()
+  let id = ctx.chat.id
+  let his_creds = creds[id.toString()]
+  if (typeof his_creds == "undefined") {
+    await bot.telegram.sendMessage(id, `Вас нет в базе данных, вам нужно войти в свою учётную запись\n\nВаш регистрационный токен:`)
+    await bot.telegram.sendMessage(id, id)
     ctx.reply(
-      "Вы уже зарегистрированы",
-      Markup.keyboard([["Назад", "Перерегистрироваться"]])
-        .oneTime()
-        .resize()
-        .extra()
+      `Страница входа: `+"https://schoolbot.ml/",
+      Keyboard.make(["Я вошёл"]).reply()
     );
   } else {
+    let res = await session.login(his_creds, id)
+    session.logout(his_creds, id)
+    if (res == -1) {
+      await bot.telegram.sendMessage(id, "Пароль и/или логин неверный, вам нужно перевойти\n\nВаш регистрационный токен:")
+      await bot.telegram.sendMessage(id, id)
+      ctx.reply(
+        `Страница входа: `+"https://schoolbot.ml/",
+        Keyboard.make(["Я вошёл"]).reply()
+      );
+    } else {
+      if (!ids.includes(id)) ids.push(id);
+      db_ids(ids);
+      ctx.reply("Вход выполнен успешно", Keyboard.make([
+        ['Войти', 'Обновить'],
+      ]).reply())
+    }
+  }
+bot.hears("Обновить", async (ctx) => {
+  console.log("Обновить")
+  let b = await check_for_updates(ctx.chat.id)
+  if (!b) {
+    ctx.reply("Изменений нет", Keyboard.make([
+      ['Войти', 'Обновить'],
+    ]).reply())
+  }
+})
+
+  // bot.telegram.sendMessage(id, `Вам нужно войти в учётную запись своего дневника\n\nВнимание, войдя в свою учётную запись, даёте права на использование ваших данных(telegram id, пароль, логин)\n\nВаш регистрационный токен:`)
+  // bot.telegram.sendMessage(id, id)
+  // ctx.reply(
+  //   `Страница входа: `+"https://google.com",
+  //   Keyboard.make(["Я вошёл"]).reply()
+  // );
+})
+bot.hears("Главная",  (ctx) => {
+  ctx.reply("Изменений нет", Keyboard.make([
+    ['Войти', 'Обновить'],
+  ]).reply())
+})
+bot.hears("Войти", async (ctx) => {
+  let id = ctx.chat.id;
+  if (ids.includes(id)) {
+    ctx.reply(
+      "Вы уже зашли",
+      Keyboard.make(["Главная", "Перевойти"]).reply()
+    );
+  } else {
+    await bot.telegram.sendMessage(id, `Вам нужно войти в учётную запись своего дневника\n\nВнимание, войдя в свою учётную запись,Вы даёте права на использование ваших данных(telegram id, пароль, логин)\n\nВаш регистрационный токен:`)
+    await bot.telegram.sendMessage(id, id)
+    ctx.reply(
+      `Страница входа: `+"https://schoolbot.ml/",
+      Keyboard.make(["Я вошёл"]).reply()
+    );
   }
 });
-bot.hears("*", (ctx) => {
-  console.log("hmm");
-});
+
 let find_changes = (obj1, obj2, skip_keys = ["_id"]) => {
   // arr1 - старый, arr2 - новый
   logger.info("fund_changes func called");
@@ -58,8 +120,9 @@ let find_changes = (obj1, obj2, skip_keys = ["_id"]) => {
   );
   let changes = { hw: [], mark: [] };
   try {
-    keys1 = Object.keys(obj1);
-    keys2 = Object.keys(obj1);
+    let keys1 = Object.keys(obj1);
+    let keys2 = Object.keys(obj1);
+    let key = ""
     for (let i = 0; i < keys1.length; i++) {
       key = keys1[i];
       if (!skip_keys.includes(key)) {
@@ -94,9 +157,11 @@ bot.help((ctx) => ctx.reply("I'm alive"));
 // bot.on("sticker", (ctx) => ctx.reply("👍"));
 // bot.hears("hi", (ctx) => ctx.reply("Hey there"));
 let configure_message = (pair) => {
+  //console.log(pair)
   let date = pair[0].date.split("-");
   let answ = date[1] + "-" + date[2] + "\n\n";
-  changes = find_changes(pair[0], pair[1]);
+  let changes = find_changes(pair[0], pair[1]);
+  let arr
   if (changes.mark.length > 0) {
     answ += "Новые оценки :\n";
     for (let i = 0; i < changes.mark.length; i++) {
@@ -126,60 +191,68 @@ let configure_message = (pair) => {
   }
   return answ
 };
-let check_for_updates = async () => {
-  for (let i = 0; i < ids.length; i++) {
-    console.log(i)
+let check_for_updates = async (tg_id) => {
     logger.info("chech_for_updates called");
-    let cr = await session.login(creds, ids[i]);
-    let id = cr[0];
-    let pupil_id = cr[1];
-    while (id === 0) {
-      logger.info("call login() func");
-      cr = await session.login(creds, ids[i]);
-      id = cr[0];
-      pupil_id = cr[1];
-    }
-    res = await get_data(
-      last_holidays_day,
-      last_quarter_day,
-      43,
-      id,
-      pupil_id,
-      ids[i]
-    );
-    while (res == 0) {
-      res = await get_data(
+    let cr = await session.login(creds[tg_id.toString()], tg_id);
+    // console.log(cr)
+    if (cr == -1) {
+      bot.telegram.sendMessage(tg_id, "Вам нужно перевойти")
+    } else {
+      let id = cr[0];
+      let pupil_id = cr[1];
+      while (id === 0) {
+        logger.info("call login() func");
+        cr = await session.login(creds, tg_id);
+        id = cr[0];
+        pupil_id = cr[1];
+      }
+      let res = await get_data(
         last_holidays_day,
         last_quarter_day,
         43,
         id,
         pupil_id,
-        ids[i]
+        tg_id
       );
+      while (res == 0) {
+        res = await get_data(
+          last_holidays_day,
+          last_quarter_day,
+          43,
+          id,
+          pupil_id,
+          tg_id
+        );
+      }
+      session.logout(id, tg_id);
+      logger.debug(
+        "result length",
+        res.length,
+        "res",
+        JSON.stringify(res, null, 2)
+      );
+      res = await db.update_db(res, tg_id, tg_id.toString());
+      console.log(res, res.length)
+      for (let i = 0; i < res.length; i++) {
+        let pair = res[i];
+        let answ = configure_message(pair);
+        bot.telegram
+          .sendMessage(tg_id, answ)
+          .catch((e) => logger.error("error in sending message to user", e));
+      }
+      return res.length != 0
     }
-    session.logout(id, ids[i]);
-    logger.debug(
-      "result length",
-      res.length,
-      "res",
-      JSON.stringify(res, null, 2)
-    );
-    res = await db.update_db(res, ids[i]);
-    for (let i = 0; i < res.length; i++) {
-      let pair = res[i];
-      let answ = configure_message(pair);
 
-      bot.telegram
-        .sendMessage(ids[i], answ)
-        .catch((e) => logger.error("error in sending message to user", e));
-    }
 
-  }
 };
 
 let init = async () => {
   ids = await db_ids();
-  check_for_updates();
+  creds = await db_creds()
+  //console.log(creds, ids)
+  for (let i = 0; i < ids.length; i++) {
+    check_for_updates(ids[i])
+  }
 };
 init();
 bot.launch();

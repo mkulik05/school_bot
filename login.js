@@ -1,10 +1,10 @@
 let request = require("request-promise");
 const logger = require("./logger")("login")
-let login = async (creds, tg_id) => {
+let login = async (creds, tg_id, token = "9NH0UsHHrvTUH49VRTWjY3v6xA8ltSUp") => {
   logger.info({tg_id:tg_id}, "called login function")
   logger.debug({tg_id:tg_id}, `username = ${creds.login}`)
   let json = "";
-  //let err = "";
+  let err = 0; // 0 - everything OK, -1 - access denied
   let headers = {
     authority: "schools.by",
     "cache-control": "max-age=0",
@@ -26,7 +26,7 @@ let login = async (creds, tg_id) => {
   };
 
   let callback = async (error, response, body) => {
-    logger.info({tg_id:tg_id}, `called login request callback, responce status `, response.statusCode)
+    logger.info({tg_id:tg_id}, `called login request callback, status code `, response.statusCode)
     logger.debug({tg_id:tg_id}, "responce", JSON.stringify(response, null, 2))
     if (!error) {
       json = response.headers;
@@ -34,9 +34,12 @@ let login = async (creds, tg_id) => {
       logger.error({tg_id:tg_id}, `error in login request callback`, error)
       //console.log("get_session_id callback ", error);
     }
+    if (response.body.indexOf("Пожалуйста, введите правильные Логин и пароль. Оба поля могут быть чувствительны к регистру.") > -1) {
+      err = -1
+    }
   };
 
-  let dataString = `csrfmiddlewaretoken=${creds.token}&username=${creds.login}&password=${creds.password}`;
+  let dataString = `csrfmiddlewaretoken=${token}&username=${creds.login}&password=${creds.password}`;
   let options = {
     url: "https://schools.by/login",
     method: "POST",
@@ -50,7 +53,7 @@ let login = async (creds, tg_id) => {
     //console.log(json)
     logger.error({tg_id:tg_id}, " error ", e)
   }
-  if (json != "") {
+  if (json != "" && err != -1) {
     logger.info({tg_id:tg_id}, "start parsering json to get session ID")
     try {
 
@@ -63,6 +66,10 @@ let login = async (creds, tg_id) => {
       logger.error({tg_id:tg_id}, "error in parsering resp json ", e)
     }
   } else {
+    if (err = -1) {
+      logger.warn({tg_id:tg_id}, "access denied")
+      return -1
+    }
     logger.warn({tg_id:tg_id}, "json is empty(, return 0")
     return 0;
   }

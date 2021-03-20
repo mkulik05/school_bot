@@ -10,8 +10,9 @@ const dbName = "school_bot";
 let objs_are_simple = (obj1, obj2, tg_id, skip_keys = ["_id"]) => {
   logger.info({tg_id:tg_id}, "function objs_are_simple called")
   logger.debug({tg_id:tg_id},  "obj1", JSON.stringify(obj1, null, 2), "obj2", JSON.stringify(obj2, null, 2))
-  keys1 = Object.keys(obj1);
-  keys2 = Object.keys(obj1);
+  let keys1 = Object.keys(obj1);
+  let keys2 = Object.keys(obj1);
+  let key = ""
   for (let i = 0; i < keys1.length; i++) {
     key = keys1[i];
     if (keys2.includes(key)) {
@@ -34,10 +35,13 @@ let update_db = async (data, tg_id, col_name = "test") => {
   let changes = [];
   try {
     await client.connect();
-    logger.info({tg_id:tg_id}, "Connected correctly to server");
     const db = client.db(dbName);
-
-    const col = db.collection(col_name);
+    let col = db.collection(col_name);
+    logger.info({tg_id:tg_id}, "Connected correctly to server");
+    if (col == null) {
+      await db.createCollection(col_name)
+    }
+    col = db.collection(col_name);
     logger.debug({tg_id:tg_id}, "connect to collection", col_name, "data length =", data.length);
     for (let i = 0; i < data.length; i++) {
       let el = data[i];
@@ -80,7 +84,7 @@ let update_db = async (data, tg_id, col_name = "test") => {
         if (result == null) {
           logger.info({tg_id:tg_id}, "add this day to db")
           await col.insertOne(el);
-          changes.push([{}, el]);
+          //changes.push([{}, el]);
           //console.log("add to db");
         } else {
           //console.log(str, result)
