@@ -28,6 +28,7 @@ let login = async (creds, tg_id, token = '9NH0UsHHrvTUH49VRTWjY3v6xA8ltSUp') => 
 	let callback = async (error, response, body) => {
     if (typeof response === 'undefined') {
       logger.error({ tg_id: tg_id }, `called login request callback, responce is undefined, body:`, body);
+      return;
     } else {
       logger.info({ tg_id: tg_id }, `called login request callback, status code `, response.statusCode);
     }
