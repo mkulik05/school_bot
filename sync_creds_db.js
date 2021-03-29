@@ -1,5 +1,5 @@
 const logger = require("./logger")("sync_creds_db")
-const mongo_creds = require("./mongo_creds.json");
+// const mongo_creds = require("./mongo_creds.json");
 const { MongoClient } = require("mongodb");
 const url =
   "mongodb://localhost:27017/?authSource=admin&readPreference=primary&appname=MongoDB%20Compass&ssl=false";
