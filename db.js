@@ -2,7 +2,6 @@ const logger = require('./logger')('database');
 //const mongo_creds = require('./mongo_creds.json');
 const { MongoClient } = require('mongodb');
 //const url = `mongodb+srv://${mongo_creds.user}:${mongo_creds.password}@cluster0.hvnia.mongodb.net/test?authSource=admin&replicaSet=atlas-zd20rv-shard-0&readPreference=primary&appname=MongoDB%20Compass&ssl=true`;
-const url = 'mongodb://localhost:27017/?authSource=admin&readPreference=primary&appname=MongoDB%20Compass&ssl=false';
 const dbName = 'school_bot';
 
 let objs_are_simple = (obj1, obj2, tg_id, skip_keys = [ '_id' ]) => {
@@ -26,7 +25,7 @@ let objs_are_simple = (obj1, obj2, tg_id, skip_keys = [ '_id' ]) => {
 	return true;
 };
 
-let update_db = async (data, tg_id, col_name = 'test') => {
+let update_db = async (url, data, tg_id, col_name = 'test') => {
 	logger.info({ tg_id: tg_id }, 'called function update_db');
 	const client = new MongoClient(url, { useUnifiedTopology: true });
 	logger.info({ tg_id: tg_id }, 'created new mongo client');
