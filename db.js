@@ -1,5 +1,5 @@
 const logger = require('./logger')('database');
-const mongo_creds = require('./mongo_creds.json');
+//const mongo_creds = require('./mongo_creds.json');
 const { MongoClient } = require('mongodb');
 //const url = `mongodb+srv://${mongo_creds.user}:${mongo_creds.password}@cluster0.hvnia.mongodb.net/test?authSource=admin&replicaSet=atlas-zd20rv-shard-0&readPreference=primary&appname=MongoDB%20Compass&ssl=true`;
 const url = 'mongodb://localhost:27017/?authSource=admin&readPreference=primary&appname=MongoDB%20Compass&ssl=false';
