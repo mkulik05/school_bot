@@ -1,8 +1,6 @@
 const { Telegraf } = require('telegraf');
 const { Keyboard } = require('telegram-keyboard');
 
-//const creds = require("./creditionals.json");
-const mongo_creds = require('./mongo_creds.json');
 const bot_token = require('./bot_token.json');
 let session = require('./login');
 let db_ids = require('./sync_ids_db');
