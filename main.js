@@ -99,6 +99,10 @@ let msg_i_login = async (ctx) => {
 };
 
 let msg_update = async (ctx) => {
+	if (!ids.includes(ctx.chat.id)){
+		await send_msg(ctx.chat.id, 'Вам нужно войти', Keyboard.make([ [ 'Войти', 'Обновить' ] ]).reply());
+		return;
+	} 
 	await send_msg(ctx.chat.id, 'Информация обрабатывается');
 	let b = await check_for_updates(ctx.chat.id);
 	if (!b) {
