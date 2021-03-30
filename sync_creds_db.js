@@ -23,6 +23,7 @@ let get_creds = async (url) => {
     return result
   } catch (err) {
     logger.error("error", err.stack);
+    return 0
   } finally {
     await client.close();
   }

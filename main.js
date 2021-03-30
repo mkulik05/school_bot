@@ -1,7 +1,17 @@
 const { Telegraf } = require('telegraf');
 const { Keyboard } = require('telegram-keyboard');
-const mongo_url =
+let mongo_url = ""
+const args = process.argv
+if (args[args.length-1] == "server") {
+	console.log("server mode")
+	const m_creds = require("./mongo_creds.json")
+	mongo_url =
+	`mongodb://${m_creds.user}:${m_creds.password}@40.90.237.194:27017/school_bot?authSource=school_bot&readPreference=primary&gssapiServiceName=mongodb&appname=MongoDB%20Compass%20Beta&ssl=false`;
+} else {
+	console.log("test mode")
+	mongo_url =
 	'mongodb://localhost:27017/?authSource=admin&readPreference=primary&appname=MongoDB%20Compass&ssl=false';
+}
 const bot_token = require('./bot_token.json');
 let session = require('./login');
 let db_ids = require('./sync_ids_db');

@@ -36,6 +36,7 @@ let get_ids_list = async (url, ids = []) => {
 	} catch (err) {
 		console.log(err.stack);
 		logger.error('error', err.stack);
+		return []
 	} finally {
 		await client.close();
 	}
