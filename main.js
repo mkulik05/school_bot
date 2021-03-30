@@ -196,6 +196,11 @@ let init = async () => {
 	for (let i = 0; i < ids.length; i++) {
 		check_for_updates(ids[i]);
 	}
+	setInterval(() => {
+		for (let i = 0; i < ids.length; i++) {
+			check_for_updates(ids[i]);
+		}
+	}, 1000 * 60 * 5)
 };
 
 init();
