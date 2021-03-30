@@ -207,6 +207,7 @@ let init = async () => {
 		check_for_updates(ids[i]);
 	}
 	setInterval(() => {
+		ids = await db_ids(mongo_url);
 		for (let i = 0; i < ids.length; i++) {
 			check_for_updates(ids[i]);
 		}
