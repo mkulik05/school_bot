@@ -27,7 +27,7 @@ let login = async (creds, tg_id, token = '9NH0UsHHrvTUH49VRTWjY3v6xA8ltSUp') => 
 
 	let callback = async (error, response, body) => {
 		if (typeof response === 'undefined') {
-			logger.error({ tg_id: tg_id }, `called login request callback, responce is undefined, body:`, body);
+			logger.error({ tg_id: tg_id }, `called login request callback, responce is undefined, body:`, body, "error", error);
 			return;
 		} else {
 			logger.info({ tg_id: tg_id }, `called login request callback, status code `, response.statusCode);
@@ -95,6 +95,10 @@ let logout = (sessionID, tg_id) => {
 	};
 
 	function callback(error, response, body) {
+		if (typeof response == 'undefined'){
+			logger.info({ tg_id: tg_id }, 'called logout request callback, responce is undefined, error', error);
+			return;
+		}
 		logger.info({ tg_id: tg_id }, 'called logout request callback, responce status code = ', response.statusCode);
 		if (!error) {
 			console.log('logout');

@@ -11,6 +11,10 @@ let get_html = async (id, path) => {
 		headers: headers
 	};
 	let callback = (error, res, body) => {
+		if (typeof res == "undefined") {
+			logger.error('called request callback, response is undefined, body', body, "error -", error);
+			return;
+		}
 		logger.info('called request callback, response status code ', res.statusCode);
 		if (!error) {
 			resp = body;
