@@ -68,6 +68,9 @@ let login = async (creds, tg_id, token = '9NH0UsHHrvTUH49VRTWjY3v6xA8ltSUp') => 
 			let sessionid = json['set-cookie'][1].split(';')[0].split('=')[1];
 			let id = json['location'].split('/');
 			id = id[id.length - 1];
+			if (typeof id == "undefined") {
+				id = 0
+			}
 			logger.info({ tg_id: tg_id }, 'json parsed successfully');
 			return [ sessionid, id ];
 		} catch (e) {

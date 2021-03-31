@@ -1,31 +1,37 @@
 const { Telegraf } = require('telegraf');
-const { Keyboard } = require('telegram-keyboard');
-let mongo_url = ""
-const args = process.argv
-if (args[args.length-1] == "server") {
-	console.log("server mode")
-	const m_creds = require("./mongo_creds.json")
-	mongo_url =
-	`mongodb://${m_creds.user}:${m_creds.password}@40.90.237.194:27017/school_bot?authSource=school_bot&readPreference=primary&gssapiServiceName=mongodb&appname=MongoDB%20Compass%20Beta&ssl=false`;
-} else {
-	console.log("test mode")
-	mongo_url =
-	'mongodb://localhost:27017/?authSource=admin&readPreference=primary&appname=MongoDB%20Compass&ssl=false';
-}
+const { Keyboard, Key } = require('telegram-keyboard')
 const bot_token = require('./bot_token.json');
 let session = require('./login');
 let db_ids = require('./sync_ids_db');
 let db_creds = require('./sync_creds_db');
 let get_data = require('./get_data');
+let lessons = require('./get_les_db')
+let marks = require('./marks_db')
 const logger = require('./logger')('main');
 const last_holidays_day = new Date('Mon Jan 11 2021 00:00:00 GMT+0300 (Moscow Standard Time)');
 const last_quarter_day = new Date('Fri Mar 28 2021 23:59:59 GMT+0300 (Moscow Standard Time)');
 const bot = new Telegraf(bot_token.token);
 const db = require('./db');
+
+let mongo_url = '';
+const args = process.argv;
+if (args[args.length - 1] == 'server') {
+	console.log('server mode');
+	const m_creds = require('./mongo_creds.json');
+	mongo_url = `mongodb://${m_creds.user}:${m_creds.password}@40.90.237.194:27017/school_bot?authSource=school_bot&readPreference=primary&gssapiServiceName=mongodb&appname=MongoDB%20Compass%20Beta&ssl=false`;
+} else {
+	console.log('test mode');
+	mongo_url =
+		'mongodb://localhost:27017/?authSource=admin&readPreference=primary&appname=MongoDB%20Compass&ssl=false';
+}
+
 let ids = [];
 let creds = {};
 bot.start((ctx) => {
-	ctx.reply('Привет! Этот бот поможет с электронным дневником', Keyboard.make([ [ 'Войти', 'Обновить' ] ]).reply());
+	ctx.reply(
+		'Привет! Этот бот поможет с электронным дневником',
+		Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply()
+	);
 });
 
 bot.on('message', (ctx) => {
@@ -35,7 +41,7 @@ bot.on('message', (ctx) => {
 			msg_update(ctx);
 			break;
 		case 'Главная':
-			ctx.reply('Главная страница', Keyboard.make([ [ 'Войти', 'Обновить' ] ]).reply());
+			ctx.reply('Главная страница', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
 			break;
 		case 'Войти':
 			msg_enter(ctx);
@@ -46,9 +52,36 @@ bot.on('message', (ctx) => {
 		case 'Я вошёл':
 			msg_i_login(ctx);
 			break;
+		case 'Отметки':
+			msg_marks(ctx);
+			break;
 	}
 });
 
+let msg_marks = async (ctx) => {
+	let res = await lessons(mongo_url, ctx.chat.id)
+	let arr = []
+	for (let i = 0; i < res.length; i++) {
+		
+		arr.push([Key.callback(res[i], `subj${i}${ctx.chat.id}`)])
+		bot.action(`subj${i}${ctx.chat.id}`, (ctx) => get_marks(ctx, res[i]))
+	}
+	ctx.reply("По какому предмету вы хотите получить выписку?", Keyboard.make(arr).inline())
+}
+let get_marks = async (ctx, subj) => {
+	await ctx.reply(`Запрос на выписку отправлен (${subj.toLowerCase()})`)
+	let s_marks = await marks(mongo_url, ctx.chat.id, subj, last_holidays_day, last_quarter_day)
+	s_marks.sort((a, b) => {
+		return new Date(a[0]) > new Date(b[0]);
+	  });
+	let msg = subj + "\n\n"
+	if(s_marks.length == 0) msg = `Оценок по ${subj.toLowerCase()} не выставлено`
+	for (let i = 0; i < s_marks.length; i++) {
+		let els = s_marks[i]
+		msg+= els[0] + " - " + els[1] + "\n"
+	}
+	ctx.reply(msg)
+}
 let send_msg = async (id, text, keyb = 0) => {
 	if (keyb == 0) {
 		await bot.telegram
@@ -92,21 +125,21 @@ let msg_i_login = async (ctx) => {
 			} else {
 				if (!ids.includes(id)) ids.push(id);
 				db_ids(mongo_url, ids);
-				ctx.reply('Вход выполнен успешно', Keyboard.make([ [ 'Войти', 'Обновить' ] ]).reply());
+				ctx.reply('Вход выполнен успешно', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
 			}
 		}
 	}
 };
 
 let msg_update = async (ctx) => {
-	if (!ids.includes(ctx.chat.id)){
-		await send_msg(ctx.chat.id, 'Вам нужно войти', Keyboard.make([ [ 'Войти', 'Обновить' ] ]).reply());
+	if (!ids.includes(ctx.chat.id)) {
+		await send_msg(ctx.chat.id, 'Вам нужно войти', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
 		return;
-	} 
-	await send_msg(ctx.chat.id, 'Информация обрабатывается');
+	}
+	await send_msg(ctx.chat.id, 'Информация обрабатывается, это может занять некоторое время');
 	let b = await check_for_updates(ctx.chat.id);
 	if (!b) {
-		ctx.reply('Изменений нет', Keyboard.make([ [ 'Войти', 'Обновить' ] ]).reply());
+		ctx.reply('Изменений нет', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
 	}
 };
 
@@ -181,7 +214,7 @@ let check_for_updates = async (tg_id) => {
 	} else {
 		let id = cr[0];
 		let pupil_id = cr[1];
-		while (id === 0) {
+		while (id === 0 || pupil_id === 0) {
 			logger.info('call login() func');
 			cr = await session.login(creds, tg_id);
 			id = cr[0];
@@ -194,7 +227,10 @@ let check_for_updates = async (tg_id) => {
 		session.logout(id, tg_id);
 		logger.debug('result length', res.length, 'res', JSON.stringify(res, null, 2));
 		res = await db.update_db(mongo_url, res, tg_id, tg_id.toString());
-		console.log(res, res.length);
+		res.sort((a, b) => {
+			return new Date(a.date) > new Date(b.date);
+		  });
+		//console.log(res, res.length);
 		for (let i = 0; i < res.length; i++) {
 			let pair = res[i];
 			let answ = configure_message(pair);
@@ -215,7 +251,7 @@ let init = async () => {
 		for (let i = 0; i < ids.length; i++) {
 			check_for_updates(ids[i]);
 		}
-	}, 1000 * 60 * 5)
+	}, 1000 * 60 * 1);
 };
 
 init();

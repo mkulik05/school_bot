@@ -17,6 +17,7 @@ let format_date = (c_date) => {
 let res = async (last_holidays_day, date_now, quarter_ind, id, pupil_id, tg_id) => {
 	let all_dates = [];
 	let struct = [];
+	let subjects = new Set();
 	//console.log(id);
 	let addDays = (date, days) => {
 		logger.info({ tg_id: tg_id }, 'addDays called');
@@ -71,6 +72,7 @@ let res = async (last_holidays_day, date_now, quarter_ind, id, pupil_id, tg_id) 
 							logger.debug({ tg_id: tg_id }, 'replace all . in lesson name');
 							les = les.replace('.', ' ');
 						}
+						subjects.add(les)
 						if (Object.keys(unstruct).includes(les)) {
 							logger.info({ tg_id: tg_id }, 'lesson name is already in use, add space');
 							les += ' ';
@@ -104,6 +106,7 @@ let res = async (last_holidays_day, date_now, quarter_ind, id, pupil_id, tg_id) 
 	}
 	struct.push({ last_update: new Date() });
 	struct.push({ all_dates: all_dates });
+	struct.push({subjects: Array.from(subjects)})
 	return struct;
 };
 
