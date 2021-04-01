@@ -1,5 +1,5 @@
 *.log
 node_modules
-bot_token.json
 package-lock.json
-mongo_creds.json
+dist
+configs
