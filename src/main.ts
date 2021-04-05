@@ -11,8 +11,8 @@ import { update_db } from './db';
 import { create_log } from './logger';
 const logger = create_log('main');
 
-const last_holidays_day = new Date('Mon Jan 11 2021 00:00:00 GMT+0300 (Moscow Standard Time)');
-const last_quarter_day = new Date('Fri Mar 28 2021 23:59:59 GMT+0300 (Moscow Standard Time)');
+const last_holidays_day = new Date('2021-04-05');
+const last_quarter_day = new Date('2021-05-31');
 const bot = new Telegraf(bot_token.token);
 
 let mongo_url = '';
@@ -216,7 +216,7 @@ let check_for_updates = async (tg_id: string) => {
 	} else {
 		let id = cr[1];
 		let pupil_id = cr[2];
-		let res = await get_data(last_holidays_day, last_quarter_day, 43, id, pupil_id, tg_id);
+		let res = await get_data(last_holidays_day, last_quarter_day, 44, id, pupil_id, tg_id);
 		logout(id, tg_id);
 		logger.debug('result length', res.length, 'res', JSON.stringify(res, null, 2));
 		res = await update_db(mongo_url, res, tg_id, tg_id.toString());
