@@ -14,20 +14,18 @@ let format_date = (c_date) => {
 	logger.debug('final res =', date);
 	return fin_res;
 };
-
-let get_data = async (last_holidays_day, date_now, quarter_ind, id, pupil_id, tg_id) => {
-	let all_dates = [];
+let addDays = (date, days, tg_id) => {
+	logger.info({ tg_id: tg_id }, 'addDays called');
+	var result = new Date(date);
+	result.setDate(result.getDate() + days);
+	logger.debug({ tg_id: tg_id }, 'start date ', date, 'days =', days, 'result -', result);
+	return result;
+};
+let get_data = async (last_holidays_day, date_now, quarter_ind, id, pupil_link, tg_id) => {
 	let struct = [];
 	let subjects = new Set();
 	//console.log(id);
-	let addDays = (date, days) => {
-		logger.info({ tg_id: tg_id }, 'addDays called');
-		var result = new Date(date);
-		result.setDate(result.getDate() + days);
-		logger.debug({ tg_id: tg_id }, 'start date ', date, 'days =', days, 'result -', result);
-		return result;
-	};
-	let monday = addDays(date_now, 1 - date_now.getDay());
+	let monday = addDays(date_now, 1 - date_now.getDay(), tg_id);
 	logger.debug({ tg_id: tg_id }, 'monday =', monday);
 	while (true) {
 		let date = format_date(monday);
@@ -35,7 +33,7 @@ let get_data = async (last_holidays_day, date_now, quarter_ind, id, pupil_id, tg
 		logger.info({ tg_id: tg_id }, 'get page html');
 		let data = await html(
 			id,
-			`https://gymn36.schools.by/pupil/${pupil_id}/dnevnik/quarter/${quarter_ind}/week/${date}`
+			`${pupil_link}/dnevnik/quarter/${quarter_ind}/week/${date}`
 		);
 		// while (data == "") {
 		// 	let data = await html(
@@ -50,7 +48,7 @@ let get_data = async (last_holidays_day, date_now, quarter_ind, id, pupil_id, tg
 		let curr_date = monday;
 		for (let i = 0; i < tables.length - 1; i++) {
 			logger.info({ tg_id: tg_id }, 'curr day num', i);
-			if (addDays(monday, i) > last_holidays_day) {
+			if (addDays(monday, i, tg_id) > last_holidays_day) {
 				let fcurr_date = format_date(curr_date);
 
 				let unstruct = {};
@@ -98,10 +96,9 @@ let get_data = async (last_holidays_day, date_now, quarter_ind, id, pupil_id, tg
 				if (Object.keys(unstruct).length > 0) {
 					logger.info({ tg_id: tg_id }, 'unstruct is not empty, add it to array');
 					struct.push(unstruct);
-					all_dates.push(fcurr_date);
 				}
 			}
-			curr_date = addDays(curr_date, 1);
+			curr_date = addDays(curr_date, 1, tg_id);
 			logger.info({ tg_id: tg_id }, 'change date to', curr_date);
 		}
 		if (monday <= last_holidays_day) {
@@ -110,11 +107,10 @@ let get_data = async (last_holidays_day, date_now, quarter_ind, id, pupil_id, tg
 		}
 		}
 		
-		monday = addDays(monday, -7);
+		monday = addDays(monday, -7, tg_id);
 		logger.info({ tg_id: tg_id }, 'change week to', monday);
 	}
 	struct.push({ last_update: new Date() });
-	struct.push({ all_dates: all_dates });
 	struct.push({subjects: Array.from(subjects)})
 	return struct;
 };

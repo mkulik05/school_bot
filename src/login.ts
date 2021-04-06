@@ -73,8 +73,7 @@ let login = async (creds: object, tg_id: string, token = '9NH0UsHHrvTUH49VRTWjY3
 		logger.info({ tg_id: tg_id }, 'start parsering json to get session ID');
 		try {
 			let sessionid: string = json['set-cookie'][1].split(';')[0].split('=')[1];
-			let id: string = json['location'].split('/');
-			id = id[id.length - 1];
+			let id: string = json['location']
 			if (typeof id == "undefined") {
 				return [ 1, "", "" ];
 			}

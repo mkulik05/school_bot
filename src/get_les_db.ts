@@ -20,12 +20,12 @@ let get_lessons = async (url: string, id: string) => {
     //logger.debug("result", result)
     logger.debug("subj", JSON.stringify(result.subjects));
     if (result == null) {
-      return 0
+      return []
     }
     return result.subjects
   } catch (err) {
     logger.error("error", err.stack);
-    return 0
+    return []
   } finally {
     await client.close();
   }

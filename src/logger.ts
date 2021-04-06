@@ -2,9 +2,9 @@ import {createLogger} from 'bunyan';
 let log = createLogger({
 	name: 'school_bot',
 	streams: [
-		{
-		  stream: process.stdout,
-		},
+		// {
+		//   stream: process.stdout,
+		// },
 		{
 			level: 0,
 			path: 'logs.log',

@@ -18,7 +18,6 @@ let get_html = async (id: string, path: string) => {
 		}
 		logger.info('called request callback, response status code ', res['statusCode']);
 		if (!error && res['statusCode'] !== 404) {
-			logger.debug("error -", error, res['statusCode'] !== 404);
 			resp = body;
 		} else {
 			logger.error(`error in request callback: ${error}`);

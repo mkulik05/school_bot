@@ -1,4 +1,6 @@
 import { Telegraf } from 'telegraf';
+// @ts-ignore
+import * as Calendar from 'telegraf-calendar-telegram';
 const { Keyboard, Key } = require('telegram-keyboard');
 let bot_token = require('../configs/bot_token.json');
 import { login, logout } from './login';
@@ -14,7 +16,14 @@ const logger = create_log('main');
 const last_holidays_day = new Date('Mon Jan 11 2021 00:00:00 GMT+0300 (Moscow Standard Time)');
 const last_quarter_day = new Date('Fri Mar 28 2021 23:59:59 GMT+0300 (Moscow Standard Time)');
 const bot = new Telegraf(bot_token.token);
-
+const calendar = new Calendar(bot
+// 	,
+// 	 {
+// 	startWeekDay: 1,
+// 	weekDayNames: [ 'M', 'T', 'W', 'T', 'F', 'S', 'S' ],
+// 	monthNames: [ 'Jan', 'Feb', 'Mar', 'Apr', 'Mar', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Nov', 'Dec' ]
+// }
+);
 let mongo_url = '';
 const args = process.argv;
 if (args[args.length - 1] == 'server') {
@@ -29,6 +38,9 @@ if (args[args.length - 1] == 'server') {
 
 let ids: Array<string> = [];
 let creds = {};
+let subj_requests = {};
+let req_periods = {};
+
 bot.start((ctx) => {
 	ctx.reply(
 		'Привет! Этот бот поможет с электронным дневником',
@@ -36,49 +48,160 @@ bot.start((ctx) => {
 	);
 });
 
-bot.on('text', (ctx) => {
-
-		switch (ctx.message.text) {
-			case 'Обновить':
-				msg_update(ctx);
-				break;
-			case 'Главная':
-				ctx.reply('Главная страница', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
-				break;
-			case 'Войти':
-				msg_enter(ctx);
-				break;
-			case 'Перевойти':
-				msg_reenter(ctx);
-				break;
-			case 'Я вошёл':
-				msg_i_login(ctx);
-				break;
-			case 'Отметки':
-				msg_marks(ctx);
-				break;
+calendar.setDateListener((ctx, date) => {
+	// console.log(JSON.stringify(ctx, null, 2))
+	// console.log("\n\n", Object.keys(ctx.update))
+	// console.log("\n\n", Object.keys(ctx.update.callback_query))
+	let id = ctx.chat.id.toString();
+	// console.log(req_periods[id]["msg_ids"])
+	// console.log(ctx.update.callback_query.message)
+	// console.log(ctx.update.callback_query.message.message_id)
+	let msg_id =ctx.update.callback_query.message.message_id
+	let ind = req_periods[id]["msg_ids"].indexOf(msg_id)
+	console.log(ind)
+	if (Object.keys(req_periods).includes(id)) {
+		if (!Object.keys(req_periods[id]).includes("periods")) {
+			req_periods[id]["periods"] = ['', '']
 		}
-
+		if (req_periods[id]["periods"][ind] == '') {
+			req_periods[id]["periods"][ind] = date;
+		}
+	} else {
+		req_periods[id] = {}
+		req_periods[id]["periods"] = [ '', '' ];
+		req_periods[id]["periods"][ind] = date
+	}
+	console.log(req_periods)
+	ctx.deleteMessage();
 });
 
+const today = new Date();
+const minDate = new Date();
+minDate.setMonth(today.getMonth() - 2);
+const maxDate = new Date();
+maxDate.setMonth(today.getMonth() + 2);
+maxDate.setDate(today.getDate());
+
+bot.on('text', async (ctx) => {
+	switch (ctx.message.text) {
+		case 'Обновить':
+			msg_update(ctx);
+			break;
+		case 'Главная':
+			ctx.reply('Главная страница', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+			break;
+		case 'Войти':
+			msg_enter(ctx);
+			break;
+		case 'Перевойти':
+			msg_reenter(ctx);
+			break;
+		case 'Я вошёл':
+			msg_i_login(ctx);
+			break;
+		case 'Отметки':
+			msg_marks(ctx);
+			break;
+		case 'Узнать отметки':
+			get_dates(ctx);
+			break;
+	}
+});
+
+// let wait_date = (id, e) => {
+// 	return new Promise((resolve, reject) => {
+// 		let state1 = '';
+// 		let state2 = '';
+// 		setTimeout(() => {
+// resolve(1)
+// 		}, 10000)
+
+// 	})
+// };
+
+let get_dates=(ctx) =>{
+	let id = ctx.chat.id.toString();
+	if (Object.keys(req_periods).includes(id)) { 
+		if (req_periods[id]["periods"][0] == '') ctx.reply('Вы не выбрали начальную дату');
+		if (req_periods[id]["periods"][1] == '') ctx.reply('Вы не выбрали конечную дату');
+		if(req_periods[id]["periods"][0] != '' && req_periods[id]["periods"][1] != '') {
+			get_marks_list(ctx, new Date(req_periods[id]["periods"][0]), new Date(req_periods[id]["periods"][1]))
+			req_periods[id]["periods"] = ['', '']
+		}
+	} else {
+		ctx.reply('Вы не выбрали период', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+
+	}
+}
+let select_date = async (ctx) => {
+	let id = ctx.chat.id.toString();
+	let res1 = await ctx.reply("Начальная дата:", calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
+	let res2 = await ctx.reply("Конечная дата:", calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
+	if (!Object.keys(req_periods).includes(id)) {
+		req_periods[id] = {}
+		req_periods[id]["periods"] = ['', '']
+	}
+	req_periods[id]["msg_ids"] = [res1["message_id"], res2["message_id"]]
+	console.log(res1["message_id"], res2["message_id"])
+	//await ctx.reply("Конечная дата:", calendar2.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
+	ctx.reply("После выбора дат, нажмите 'Узнать отметки'", Keyboard.make([ [ 'Главная', 'Узнать отметки' ] ]).reply())
+
+};
+let get_marks_list = (ctx, s, e) => {
+	let id = ctx.chat.id.toString();
+	if (Object.keys(subj_requests).includes(id)) {
+		if (subj_requests[id].length != 0) {
+			for (let i = 0; i < subj_requests[id].length; i++) {
+				get_marks(ctx, subj_requests[id][i], s, e);
+			}
+			ctx.reply('Главная страница', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+		} else {
+			ctx.reply('Вы не выбрали предмет(ы)', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+		}
+
+		subj_requests[id] = [];
+	} else {
+		ctx.reply('Вы не выбрали предмет(ы)', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+	}
+};
 let msg_marks = async (ctx) => {
 	let res = await lessons(mongo_url, ctx.chat.id);
 	let arr = [];
 	for (let i = 0; i < res.length; i++) {
 		arr.push([ Key.callback(res[i], `subj${i}${ctx.chat.id}`) ]);
-		bot.action(`subj${i}${ctx.chat.id}`, (ctx) => get_marks(ctx, res[i]));
+		bot.action(`subj${i}${ctx.chat.id}`, (ctx) => add_les(ctx, res[i]));
 	}
-	ctx.reply('По какому предмету вы хотите получить выписку?', Keyboard.make(arr).inline());
+	await ctx.reply('По каким предметам вы хотите получить выписку?', Keyboard.make(arr).inline());
+	await ctx.reply(
+		'За какой период вы хотите получить выписку?',
+		Keyboard.make([
+			Key.callback('Вся четверть', `q${ctx.chat.id}`),
+			Key.callback('Выбрать', `s${ctx.chat.id}`)
+		]).inline()
+	);
+	bot.action(`q${ctx.chat.id}`, (ctx) => get_marks_list(ctx, last_holidays_day, last_quarter_day));
+	bot.action(`s${ctx.chat.id}`, (ctx) => select_date(ctx));
 };
-let get_marks = async (ctx, subj) => {
-	await ctx.reply(`Запрос на выписку отправлен (${subj.toLowerCase()})`);
-	let s_marks = await marks(mongo_url, ctx.chat.id, subj, last_holidays_day, last_quarter_day);
+let add_les = (ctx, subj) => {
+	let id = ctx.chat.id.toString();
+	if (Object.keys(subj_requests).includes(id)) {
+		subj_requests[id].push(subj);
+	} else {
+		subj_requests[id] = [ subj ];
+	}
+	ctx.reply(`${subj} добавлена к списку`);
+};
+let get_marks = async (ctx, subj, s, e) => {
+	//await ctx.reply(`Запрос на выписку отправлен (${subj.toLowerCase()})`);
+	let s_marks = await marks(mongo_url, ctx.chat.id, subj, s, e);
 	s_marks.sort((a, b) => {
 		if (new Date(a[0]) > new Date(b[0])) return 1;
 		if (new Date(a[0]) == new Date(b[0])) return 0;
 		if (new Date(a[0]) < new Date(b[0])) return -1;
 	});
-	let msg = subj + '\n\n';
+	let period = (s.getDate() < 10 ? '0': '' )+ s.getDate().toString() + '.' +( s.getMonth()+1 < 10 ? '0': '')+(s.getMonth()+1).toString() + ' - ' + (e.getDate() < 10 ? '0': '')+ e.getDate().toString() + '.' +(e.getMonth() +1< 10 ? '0': '') +(e.getMonth()+1).toString()
+
+	let msg = subj + '\n'+ period+ '\n\n';
 	if (s_marks.length == 0) msg = `Оценок по ${subj.toLowerCase()} не выставлено`;
 	for (let i = 0; i < s_marks.length; i++) {
 		let els = s_marks[i];
@@ -205,7 +328,7 @@ let configure_message = (pair) => {
 };
 let check_for_updates = async (tg_id: string) => {
 	logger.info('chech_for_updates called');
-	let cr: [number, string, string] = [1, "", ""]
+	let cr: [number, string, string] = [ 1, '', '' ];
 	while (cr[0] == 1) {
 		cr = await login(creds[tg_id.toString()], tg_id);
 	}
@@ -215,8 +338,8 @@ let check_for_updates = async (tg_id: string) => {
 		ids.splice(ids.indexOf(tg_id), 1);
 	} else {
 		let id = cr[1];
-		let pupil_id = cr[2];
-		let res = await get_data(last_holidays_day, last_quarter_day, 43, id, pupil_id, tg_id);
+		let pupil_link = cr[2];
+		let res = await get_data(last_holidays_day, last_quarter_day, 43, id, pupil_link, tg_id);
 		logout(id, tg_id);
 		logger.debug('result length', res.length, 'res', JSON.stringify(res, null, 2));
 		res = await update_db(mongo_url, res, tg_id, tg_id.toString());
