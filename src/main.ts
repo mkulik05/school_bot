@@ -16,13 +16,14 @@ const logger = create_log('main');
 const last_holidays_day = new Date('2021-04-05');
 const last_quarter_day = new Date('2021-05-31');
 const bot = new Telegraf(bot_token.token);
-const calendar = new Calendar(bot
-// 	,
-// 	 {
-// 	startWeekDay: 1,
-// 	weekDayNames: [ 'M', 'T', 'W', 'T', 'F', 'S', 'S' ],
-// 	monthNames: [ 'Jan', 'Feb', 'Mar', 'Apr', 'Mar', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Nov', 'Dec' ]
-// }
+const calendar = new Calendar(
+	bot
+	// 	,
+	// 	 {
+	// 	startWeekDay: 1,
+	// 	weekDayNames: [ 'M', 'T', 'W', 'T', 'F', 'S', 'S' ],
+	// 	monthNames: [ 'Jan', 'Feb', 'Mar', 'Apr', 'Mar', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Nov', 'Dec' ]
+	// }
 );
 let mongo_url = '';
 const args = process.argv;
@@ -39,7 +40,8 @@ if (args[args.length - 1] == 'server') {
 let ids: Array<string> = [];
 let creds = {};
 let subj_requests = {};
-let req_periods = {};
+//let req_periods = {};
+let periods = {};
 
 bot.start((ctx) => {
 	ctx.reply(
@@ -49,31 +51,41 @@ bot.start((ctx) => {
 });
 
 calendar.setDateListener((ctx, date) => {
-	// console.log(JSON.stringify(ctx, null, 2))
-	// console.log("\n\n", Object.keys(ctx.update))
-	// console.log("\n\n", Object.keys(ctx.update.callback_query))
 	let id = ctx.chat.id.toString();
-	// console.log(req_periods[id]["msg_ids"])
-	// console.log(ctx.update.callback_query.message)
-	// console.log(ctx.update.callback_query.message.message_id)
-	let msg_id =ctx.update.callback_query.message.message_id
-	let ind = req_periods[id]["msg_ids"].indexOf(msg_id)
-	console.log(ind)
-	if (Object.keys(req_periods).includes(id)) {
-		if (!Object.keys(req_periods[id]).includes("periods")) {
-			req_periods[id]["periods"] = ['', '']
+	let msg_id = ctx.update.callback_query.message.message_id;
+	let name = periods[id][msg_id];
+	let ind = periods[id][name]['msg_ids'].indexOf(msg_id);
+	console.log(ind);
+	if (Object.keys(periods).includes(id)) {
+		if (!Object.keys(periods[id][name]).includes('periods')) {
+			periods[id][name]['periods'] = [ '', '' ];
 		}
-		if (req_periods[id]["periods"][ind] == '') {
-			req_periods[id]["periods"][ind] = date;
+		if (periods[id][name]['periods'][ind] == '') {
+			periods[id][name]['periods'][ind] = date;
 		}
 	} else {
-		req_periods[id] = {}
-		req_periods[id]["periods"] = [ '', '' ];
-		req_periods[id]["periods"][ind] = date
+		periods[id][name] = {};
+		periods[id][name]['periods'] = [ '', '' ];
+		periods[id][name]['periods'][ind] = date;
 	}
-	console.log(req_periods)
+	console.log(periods);
 	ctx.deleteMessage();
 });
+
+let get_period = async (ctx, name, btn) => {
+	let id = ctx.chat.id.toString();
+	let res1 = await ctx.reply('Начальная дата:', calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar());
+	let res2 = await ctx.reply('Конечная дата:', calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar());
+	if (!Object.keys(periods).includes(id)) {
+		periods[id] = {};
+		periods[id][name] = {};
+		periods[id][name]['periods'] = [ '', '' ];
+	}
+	periods[id][name]['msg_ids'] = [ res1['message_id'], res2['message_id'] ];
+	periods[id][res1['message_id']] = name;
+	periods[id][res2['message_id']] = name;
+	ctx.reply(`После выбора дат, нажмите '${btn}'`, Keyboard.make([ [ 'Главная', btn ] ]).reply());
+};
 
 const today = new Date();
 const minDate = new Date();
@@ -103,50 +115,42 @@ bot.on('text', async (ctx) => {
 			msg_marks(ctx);
 			break;
 		case 'Узнать отметки':
-			get_dates(ctx);
+			validate_dates(ctx, 'get_marks', get_marks_list);
 			break;
 	}
 });
 
-// let wait_date = (id, e) => {
-// 	return new Promise((resolve, reject) => {
-// 		let state1 = '';
-// 		let state2 = '';
-// 		setTimeout(() => {
-// resolve(1)
-// 		}, 10000)
-
-// 	})
-// };
-
-let get_dates=(ctx) =>{
+let validate_dates = (ctx, name, nextFunc) => {
 	let id = ctx.chat.id.toString();
-	if (Object.keys(req_periods).includes(id)) { 
-		if (req_periods[id]["periods"][0] == '') ctx.reply('Вы не выбрали начальную дату');
-		if (req_periods[id]["periods"][1] == '') ctx.reply('Вы не выбрали конечную дату');
-		if(req_periods[id]["periods"][0] != '' && req_periods[id]["periods"][1] != '') {
-			get_marks_list(ctx, new Date(req_periods[id]["periods"][0]), new Date(req_periods[id]["periods"][1]))
-			req_periods[id]["periods"] = ['', '']
+	if (Object.keys(periods).includes(id)) {
+		if (Object.keys(periods[id]).includes(name)) {
+			if (periods[id][name]['periods'][0] == '') ctx.reply('Вы не выбрали начальную дату');
+			if (periods[id][name]['periods'][1] == '') ctx.reply('Вы не выбрали конечную дату');
+			if (periods[id][name]['periods'][0] != '' && periods[id][name]['periods'][1] != '') {
+				nextFunc(ctx, new Date(periods[id][name]['periods'][0]), new Date(periods[id][name]['periods'][1]));
+				periods[id][name]['periods'] = [ '', '' ];
+			}
+		} else {
+			ctx.reply('Вы не выбрали период');
 		}
 	} else {
-		ctx.reply('Вы не выбрали период', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
-
+		ctx.reply('Вы не выбрали период');
 	}
-}
-let select_date = async (ctx) => {
-	let id = ctx.chat.id.toString();
-	let res1 = await ctx.reply("Начальная дата:", calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
-	let res2 = await ctx.reply("Конечная дата:", calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
-	if (!Object.keys(req_periods).includes(id)) {
-		req_periods[id] = {}
-		req_periods[id]["periods"] = ['', '']
-	}
-	req_periods[id]["msg_ids"] = [res1["message_id"], res2["message_id"]]
-	console.log(res1["message_id"], res2["message_id"])
-	//await ctx.reply("Конечная дата:", calendar2.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
-	ctx.reply("После выбора дат, нажмите 'Узнать отметки'", Keyboard.make([ [ 'Главная', 'Узнать отметки' ] ]).reply())
-
 };
+// let select_date = async (ctx) => {
+// 	let id = ctx.chat.id.toString();
+// 	let res1 = await ctx.reply("Начальная дата:", calendar.setMinDte(minDate).setMaxDate(maxDate).getCalendar())
+// 	let res2 = await ctx.reply("Конечная дата:", calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
+// 	if (!Object.keys(req_periods).includes(id)) {
+// 		req_periods[id] = {}
+// 		req_periods[id]["periods"] = ['', '']
+// 	}
+// 	req_periods[id]["msg_ids"] = [res1["message_id"], res2["message_id"]]
+// 	console.log(res1["message_id"], res2["message_id"])
+// 	//await ctx.reply("Конечная дата:", calendar2.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
+// 	ctx.reply("После выбора дат, нажмите 'Узнать отметки'", Keyboard.make([ [ 'Главная', 'Узнать отметки' ] ]).reply())
+
+// };
 let get_marks_list = (ctx, s, e) => {
 	let id = ctx.chat.id.toString();
 	if (Object.keys(subj_requests).includes(id)) {
@@ -180,7 +184,7 @@ let msg_marks = async (ctx) => {
 		]).inline()
 	);
 	bot.action(`q${ctx.chat.id}`, (ctx) => get_marks_list(ctx, last_holidays_day, last_quarter_day));
-	bot.action(`s${ctx.chat.id}`, (ctx) => select_date(ctx));
+	bot.action(`s${ctx.chat.id}`, (ctx) => get_period(ctx, "get_marks", 'Узнать отметки'));
 };
 let add_les = (ctx, subj) => {
 	let id = ctx.chat.id.toString();
@@ -199,9 +203,20 @@ let get_marks = async (ctx, subj, s, e) => {
 		if (new Date(a[0]) == new Date(b[0])) return 0;
 		if (new Date(a[0]) < new Date(b[0])) return -1;
 	});
-	let period = (s.getDate() < 10 ? '0': '' )+ s.getDate().toString() + '.' +( s.getMonth()+1 < 10 ? '0': '')+(s.getMonth()+1).toString() + ' - ' + (e.getDate() < 10 ? '0': '')+ e.getDate().toString() + '.' +(e.getMonth() +1< 10 ? '0': '') +(e.getMonth()+1).toString()
+	let period =
+		(s.getDate() < 10 ? '0' : '') +
+		s.getDate().toString() +
+		'.' +
+		(s.getMonth() + 1 < 10 ? '0' : '') +
+		(s.getMonth() + 1).toString() +
+		' - ' +
+		(e.getDate() < 10 ? '0' : '') +
+		e.getDate().toString() +
+		'.' +
+		(e.getMonth() + 1 < 10 ? '0' : '') +
+		(e.getMonth() + 1).toString();
 
-	let msg = subj + '\n'+ period+ '\n\n';
+	let msg = subj + '\n' + period + '\n\n';
 	if (s_marks.length == 0) msg = `Оценок по ${subj.toLowerCase()} не выставлено`;
 	for (let i = 0; i < s_marks.length; i++) {
 		let els = s_marks[i];
