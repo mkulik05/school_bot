@@ -8,7 +8,7 @@ import { get_ids as db_ids } from './sync_ids_db';
 import { get_creds as db_creds } from './sync_creds_db';
 import { get_data } from './get_data';
 import { get_lessons as lessons } from './get_les_db';
-import { get_marks as marks } from './marks_db';
+import { get_marks_hw as marks_hw } from './marks_hw_db';
 import { update_db } from './db';
 import { create_log } from './logger';
 const logger = create_log('main');
@@ -16,15 +16,7 @@ const logger = create_log('main');
 const last_holidays_day = new Date('2021-04-05');
 const last_quarter_day = new Date('2021-05-31');
 const bot = new Telegraf(bot_token.token);
-const calendar = new Calendar(
-	bot
-	// 	,
-	// 	 {
-	// 	startWeekDay: 1,
-	// 	weekDayNames: [ 'M', 'T', 'W', 'T', 'F', 'S', 'S' ],
-	// 	monthNames: [ 'Jan', 'Feb', 'Mar', 'Apr', 'Mar', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Nov', 'Dec' ]
-	// }
-);
+const calendar = new Calendar(bot);
 let mongo_url = '';
 const args = process.argv;
 if (args[args.length - 1] == 'server') {
@@ -46,7 +38,7 @@ let periods = {};
 bot.start((ctx) => {
 	ctx.reply(
 		'Привет! Этот бот поможет с электронным дневником',
-		Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply()
+		Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply()
 	);
 });
 
@@ -55,7 +47,7 @@ calendar.setDateListener((ctx, date) => {
 	let msg_id = ctx.update.callback_query.message.message_id;
 	let name = periods[id][msg_id];
 	let ind = periods[id][name]['msg_ids'].indexOf(msg_id);
-	console.log(ind);
+	//console.log(ind);
 	if (Object.keys(periods).includes(id)) {
 		if (!Object.keys(periods[id][name]).includes('periods')) {
 			periods[id][name]['periods'] = [ '', '' ];
@@ -68,7 +60,7 @@ calendar.setDateListener((ctx, date) => {
 		periods[id][name]['periods'] = [ '', '' ];
 		periods[id][name]['periods'][ind] = date;
 	}
-	console.log(periods);
+	// console.log(periods);
 	ctx.deleteMessage();
 });
 
@@ -100,7 +92,7 @@ bot.on('text', async (ctx) => {
 			msg_update(ctx);
 			break;
 		case 'Главная':
-			ctx.reply('Главная страница', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+			ctx.reply('Главная страница', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
 			break;
 		case 'Войти':
 			msg_enter(ctx);
@@ -117,8 +109,15 @@ bot.on('text', async (ctx) => {
 		case 'Узнать отметки':
 			validate_dates(ctx, 'get_marks', get_marks_list);
 			break;
+		case 'Дз':
+			msg_hw(ctx);
+			break
 	}
 });
+
+let msg_hw = (ctx) => {
+
+}
 
 let validate_dates = (ctx, name, nextFunc) => {
 	let id = ctx.chat.id.toString();
@@ -154,26 +153,29 @@ let validate_dates = (ctx, name, nextFunc) => {
 let get_marks_list = (ctx, s, e) => {
 	let id = ctx.chat.id.toString();
 	if (Object.keys(subj_requests).includes(id)) {
-		if (subj_requests[id].length != 0) {
-			for (let i = 0; i < subj_requests[id].length; i++) {
-				get_marks(ctx, subj_requests[id][i], s, e);
+		if (subj_requests[id].size != 0) {
+			let subj_requests_arr =  Array.from(subj_requests[id])
+			for (let i  = 0; i < subj_requests[id].size; i++) {
+				get_marks(ctx, subj_requests_arr[i], s, e);
 			}
-			ctx.reply('Главная страница', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+			ctx.reply('Главная страница', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
 		} else {
-			ctx.reply('Вы не выбрали предмет(ы)', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+			ctx.reply('Вы не выбрали предмет(ы)', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
 		}
 
-		subj_requests[id] = [];
+		subj_requests[id] = new Set();
 	} else {
-		ctx.reply('Вы не выбрали предмет(ы)', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+		ctx.reply('Вы не выбрали предмет(ы)', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
 	}
 };
 let msg_marks = async (ctx) => {
-	let res = await lessons(mongo_url, ctx.chat.id);
-	let arr = [];
+	let res:Array<string>= await lessons(mongo_url, ctx.chat.id);
+	let arr = [[ Key.callback("Все предметы", `all_subj${ctx.chat.id}`) ]];
+	bot.action(`all_subj${ctx.chat.id}`, (ctx) => {
+	 add_les(ctx, res, 1)});
 	for (let i = 0; i < res.length; i++) {
 		arr.push([ Key.callback(res[i], `subj${i}${ctx.chat.id}`) ]);
-		bot.action(`subj${i}${ctx.chat.id}`, (ctx) => add_les(ctx, res[i]));
+		bot.action(`subj${i}${ctx.chat.id}`, (ctx) => add_les(ctx, [res[i]]));
 	}
 	await ctx.reply('По каким предметам вы хотите получить выписку?', Keyboard.make(arr).inline());
 	await ctx.reply(
@@ -184,20 +186,27 @@ let msg_marks = async (ctx) => {
 		]).inline()
 	);
 	bot.action(`q${ctx.chat.id}`, (ctx) => get_marks_list(ctx, last_holidays_day, last_quarter_day));
-	bot.action(`s${ctx.chat.id}`, (ctx) => get_period(ctx, "get_marks", 'Узнать отметки'));
+	bot.action(`s${ctx.chat.id}`, (ctx) => get_period(ctx, 'get_marks', 'Узнать отметки'));
 };
-let add_les = (ctx, subj) => {
+let add_les = (ctx, subjs:Array<string>, all = 0) => {
 	let id = ctx.chat.id.toString();
-	if (Object.keys(subj_requests).includes(id)) {
-		subj_requests[id].push(subj);
-	} else {
-		subj_requests[id] = [ subj ];
+	for (let subj of subjs) {
+		if (Object.keys(subj_requests).includes(id)) {
+			subj_requests[id].add(subj);
+		} else {
+			subj_requests[id] = new Set();
+			subj_requests[id].add(subj);
+		}
 	}
-	ctx.reply(`${subj} добавлена к списку`);
+	if (!all) {
+		ctx.reply(`${subjs[0]} добавлен(а) к списку`);
+	} else {
+		ctx.reply(`Все предметы добавлены к списку`);
+	}
 };
 let get_marks = async (ctx, subj, s, e) => {
 	//await ctx.reply(`Запрос на выписку отправлен (${subj.toLowerCase()})`);
-	let s_marks = await marks(mongo_url, ctx.chat.id, subj, s, e);
+	let s_marks = await marks_hw(mongo_url, ctx.chat.id, subj, s, e, true);
 	s_marks.sort((a, b) => {
 		if (new Date(a[0]) > new Date(b[0])) return 1;
 		if (new Date(a[0]) == new Date(b[0])) return 0;
@@ -261,7 +270,7 @@ let msg_i_login = async (ctx) => {
 			} else {
 				if (!ids.includes(id)) ids.push(id);
 				db_ids(mongo_url, ids);
-				ctx.reply('Вход выполнен успешно', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+				ctx.reply('Вход выполнен успешно', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
 			}
 		}
 	}
@@ -269,13 +278,13 @@ let msg_i_login = async (ctx) => {
 
 let msg_update = async (ctx) => {
 	if (!ids.includes(ctx.chat.id)) {
-		await send_msg(ctx.chat.id, 'Вам нужно войти', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+		await send_msg(ctx.chat.id, 'Вам нужно войти', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
 		return;
 	}
 	await send_msg(ctx.chat.id, 'Информация обрабатывается, это может занять некоторое время');
 	let b = await check_for_updates(ctx.chat.id);
 	if (!b) {
-		ctx.reply('Изменений нет', Keyboard.make([ [ 'Войти', 'Обновить', 'Отметки' ] ]).reply());
+		ctx.reply('Изменений нет', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
 	}
 };
 
@@ -384,7 +393,7 @@ let init = async () => {
 		for (let i = 0; i < ids.length; i++) {
 			check_for_updates(ids[i]);
 		}
-	}, 1000 * 60 * 1);
+	}, 1000 * 60 * 2);
 };
 
 init();

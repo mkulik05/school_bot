@@ -5,7 +5,7 @@ import { MongoClient } from "mongodb";
 const dbName = "school_bot";
 
 
-let get_marks = async (url: string, id: string, subj: string, start: Date, end: Date) => {
+let get_marks_hw = async (url: string, id: string, subj: string, start: Date, end: Date, is_mark: boolean) => {
   const client = new MongoClient(url, { useUnifiedTopology: true });
   logger.info("created new mongo client");
   try {
@@ -15,28 +15,28 @@ let get_marks = async (url: string, id: string, subj: string, start: Date, end: 
     if (col == null) {
       return []
     }
-    let marks: Array<[string, number]> = []
+    let resp: Array<[string, number]> = []
     let result = await col.find({date: {$exists: true}});
     //console.log(typeof result)
     if (result == null) {
       return []
     }
+    let req_key = is_mark ? "mark" : "hw" 
     await result.forEach((el)=>{
       if (new Date(el.date) > start && new Date(el.date) < end) {
         let keys = Object.keys(el)
         for (let i = 0; i < keys.length; i++) {
           let key = keys[i]
           if (key.includes(subj)) {
-            if (el[key].mark > 0) {
-              marks.push([el.date, el[key].mark])
+            if (is_mark === true && el[key][req_key] > 0 || is_mark === false && el[key][req_key] != '') {
+              resp.push([el.date, el[key][req_key]])
             }
           }
         }
       }
     });
-    //logger.debug("result", result)
-    logger.debug("marks", JSON.stringify(marks));
-    return marks
+    logger.debug("marks", JSON.stringify(resp));
+    return resp
   } catch (err) {
     logger.error("error", err.stack);
     return [0,0,0]
@@ -44,4 +44,5 @@ let get_marks = async (url: string, id: string, subj: string, start: Date, end: 
     await client.close();
   }
 };
-export {get_marks};
+export {get_marks_hw};
+ 
