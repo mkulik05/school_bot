@@ -9,6 +9,7 @@ import { get_creds as db_creds } from './sync_creds_db';
 import { get_data } from './get_data';
 import { get_lessons as lessons } from './get_les_db';
 import { get_marks_hw as marks_hw } from './marks_hw_db';
+import { get_hw_d as hw_d } from './get_hw_d_db';
 import { update_db } from './db';
 import { create_log } from './logger';
 const logger = create_log('main');
@@ -31,14 +32,14 @@ if (args[args.length - 1] == 'server') {
 
 let ids: Array<string> = [];
 let creds = {};
-let subj_requests = {};
 //let req_periods = {};
+let requests = {};
 let periods = {};
 
 bot.start((ctx) => {
 	ctx.reply(
 		'Привет! Этот бот поможет с электронным дневником',
-		Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply()
+		Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply()
 	);
 });
 
@@ -60,7 +61,6 @@ calendar.setDateListener((ctx, date) => {
 		periods[id][name]['periods'] = [ '', '' ];
 		periods[id][name]['periods'][ind] = date;
 	}
-	// console.log(periods);
 	ctx.deleteMessage();
 });
 
@@ -73,10 +73,14 @@ let get_period = async (ctx, name, btn) => {
 		periods[id][name] = {};
 		periods[id][name]['periods'] = [ '', '' ];
 	}
+	if (!Object.keys(periods[id]).includes(name)) {
+		periods[id][name] = {};
+		periods[id][name]['periods'] = [ '', '' ];
+	}
 	periods[id][name]['msg_ids'] = [ res1['message_id'], res2['message_id'] ];
 	periods[id][res1['message_id']] = name;
 	periods[id][res2['message_id']] = name;
-	ctx.reply(`После выбора дат, нажмите '${btn}'`, Keyboard.make([ [ 'Главная', btn ] ]).reply());
+	await ctx.reply(`После выбора дат, нажмите '${btn}'`, Keyboard.make([ [ 'Главная', btn ] ]).reply());
 };
 
 const today = new Date();
@@ -92,7 +96,10 @@ bot.on('text', async (ctx) => {
 			msg_update(ctx);
 			break;
 		case 'Главная':
-			ctx.reply('Главная страница', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
+			ctx.reply(
+				'Главная страница',
+				Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply()
+			);
 			break;
 		case 'Войти':
 			msg_enter(ctx);
@@ -104,29 +111,95 @@ bot.on('text', async (ctx) => {
 			msg_i_login(ctx);
 			break;
 		case 'Отметки':
-			msg_marks(ctx);
+			msg_marks_hw(ctx, 1);
 			break;
 		case 'Узнать отметки':
-			validate_dates(ctx, 'get_marks', get_marks_list);
+			validate_dates(ctx, 'get_marks', send_req, 1);
+			break;
+		case 'Узнать дз':
+			validate_dates(ctx, 'get_hw', send_req, 0);
+			break;
+		case 'Узнать дз за эти дни':
+			validate_dates(ctx, 'get_marks_d', get_hw_d, 0);
+			break;
+		case 'Расписание':
+			get_period(ctx, "get_shedule", "Узнать расписание");
+			break;
+		case 'Узнать расписание':
+			validate_dates(ctx, 'get_shedule', get_shedule, 0);
 			break;
 		case 'Дз':
 			msg_hw(ctx);
-			break
+			break;
 	}
 });
 
-let msg_hw = (ctx) => {
+let get_hw_d = async (ctx, s, e) => {
+	let res = await hw_d(mongo_url, ctx.chat.id, s, e);
+	res.sort((a, b) => {
+		if (new Date(a[0]) > new Date(b[0])) return 1;
+		if (a[0] === b[0]) return 0;
+		if (new Date(a[0]) < new Date(b[0])) return -1;
+	});
+	for (let i = 0; i < res.length; i++) {
+		let msg = res[i][0].split('-')[1] + '-' + res[i][0].split('-')[2] + "\n\n"
+		for (let b = 0; b < res[i][1].length; b++) {
+			let line = res[i][1][b]
+			msg+= ` ${b+1}. `+line[0] + " - " + (line[1] == '' ? "Дз не выставлено": line[1]) +"\n"
+		}
+		await send_msg(ctx.chat.id, msg, Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply())
+	}
+	if (res.length === 0) {
+		await send_msg(ctx.chat.id, "За этот период не выставлено дз", Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply())
+	}
+};
 
-}
 
-let validate_dates = (ctx, name, nextFunc) => {
+let get_shedule = async (ctx, s, e) => {
+	let res = await hw_d(mongo_url, ctx.chat.id, s, e);
+	res = res.sort((a, b) => {
+		if (new Date(a[0]) > new Date(b[0])) return 1;
+		if (a[0] === b[0]) return 0;
+		if (new Date(a[0]) < new Date(b[0])) return -1;
+	});
+	for (let i = 0; i < res.length; i++) {
+		let msg = res[i][0].split('-')[1] + '-' + res[i][0].split('-')[2] + "\n\n"
+		for (let b = 0; b < res[i][1].length; b++) {
+			let line = res[i][1][b]
+			msg+= ` ${b+1}. `+line[0] + "\n"
+		}
+		await send_msg(ctx.chat.id, msg, Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply())
+	}
+	if (res.length === 0) {
+		await send_msg(ctx.chat.id, "Нет расписания на этот период", Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply())
+	}
+};
+
+let msg_hw = async (ctx) => {
+	bot.action(`hw_subj${ctx.chat.id}`, (ctx) => msg_marks_hw(ctx, 0));
+	bot.action(`hw_d${ctx.chat.id}`, (ctx) => get_period(ctx, 'get_marks_d', 'Узнать дз за эти дни'));
+	ctx.reply(
+		'По каким предметам вы хотите получить выписку?',
+		Keyboard.make([
+			Key.callback('Выписка по дням', `hw_d${ctx.chat.id}`),
+			Key.callback('Выписка по предметам', `hw_subj${ctx.chat.id}`)
+		]).inline()
+	);
+};
+
+let validate_dates = (ctx, name, nextFunc, is_mark) => {
 	let id = ctx.chat.id.toString();
 	if (Object.keys(periods).includes(id)) {
 		if (Object.keys(periods[id]).includes(name)) {
 			if (periods[id][name]['periods'][0] == '') ctx.reply('Вы не выбрали начальную дату');
 			if (periods[id][name]['periods'][1] == '') ctx.reply('Вы не выбрали конечную дату');
 			if (periods[id][name]['periods'][0] != '' && periods[id][name]['periods'][1] != '') {
-				nextFunc(ctx, new Date(periods[id][name]['periods'][0]), new Date(periods[id][name]['periods'][1]));
+				nextFunc(
+					ctx,
+					new Date(periods[id][name]['periods'][0]),
+					new Date(periods[id][name]['periods'][1]),
+					is_mark
+				);
 				periods[id][name]['periods'] = [ '', '' ];
 			}
 		} else {
@@ -136,80 +209,86 @@ let validate_dates = (ctx, name, nextFunc) => {
 		ctx.reply('Вы не выбрали период');
 	}
 };
-// let select_date = async (ctx) => {
-// 	let id = ctx.chat.id.toString();
-// 	let res1 = await ctx.reply("Начальная дата:", calendar.setMinDte(minDate).setMaxDate(maxDate).getCalendar())
-// 	let res2 = await ctx.reply("Конечная дата:", calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
-// 	if (!Object.keys(req_periods).includes(id)) {
-// 		req_periods[id] = {}
-// 		req_periods[id]["periods"] = ['', '']
-// 	}
-// 	req_periods[id]["msg_ids"] = [res1["message_id"], res2["message_id"]]
-// 	console.log(res1["message_id"], res2["message_id"])
-// 	//await ctx.reply("Конечная дата:", calendar2.setMinDate(minDate).setMaxDate(maxDate).getCalendar())
-// 	ctx.reply("После выбора дат, нажмите 'Узнать отметки'", Keyboard.make([ [ 'Главная', 'Узнать отметки' ] ]).reply())
 
-// };
-let get_marks_list = (ctx, s, e) => {
+let send_req = (ctx, s, e, is_mark) => {
+	let key = is_mark ? 'mark_requests' : 'hw_requests';
 	let id = ctx.chat.id.toString();
-	if (Object.keys(subj_requests).includes(id)) {
-		if (subj_requests[id].size != 0) {
-			let subj_requests_arr =  Array.from(subj_requests[id])
-			for (let i  = 0; i < subj_requests[id].size; i++) {
-				get_marks(ctx, subj_requests_arr[i], s, e);
+	if (Object.keys(requests).includes(id)) {
+		if (requests[id][key].size != 0) {
+			let subj_requests_arr = Array.from(requests[id][key]);
+			for (let i = 0; i < requests[id][key].size; i++) {
+				get_marks(ctx, subj_requests_arr[i], s, e, is_mark);
 			}
-			ctx.reply('Главная страница', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
+			ctx.reply(
+				'Главная страница',
+				Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply()
+			);
 		} else {
-			ctx.reply('Вы не выбрали предмет(ы)', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
+			ctx.reply(
+				'Вы не выбрали предмет(ы)',
+				Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply()
+			);
 		}
 
-		subj_requests[id] = new Set();
+		requests[id][key] = new Set();
 	} else {
-		ctx.reply('Вы не выбрали предмет(ы)', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
+		ctx.reply(
+			'Вы не выбрали предмет(ы)',
+			Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply()
+		);
 	}
 };
-let msg_marks = async (ctx) => {
-	let res:Array<string>= await lessons(mongo_url, ctx.chat.id);
-	let arr = [[ Key.callback("Все предметы", `all_subj${ctx.chat.id}`) ]];
+
+let msg_marks_hw = async (ctx, is_mark) => {
+	let res: Array<string> = await lessons(mongo_url, ctx.chat.id);
+	let arr = [ [ Key.callback('Все предметы', `all_subj${ctx.chat.id}`) ] ];
 	bot.action(`all_subj${ctx.chat.id}`, (ctx) => {
-	 add_les(ctx, res, 1)});
+		add_les(ctx, res, 1, is_mark);
+	});
 	for (let i = 0; i < res.length; i++) {
 		arr.push([ Key.callback(res[i], `subj${i}${ctx.chat.id}`) ]);
-		bot.action(`subj${i}${ctx.chat.id}`, (ctx) => add_les(ctx, [res[i]]));
+		bot.action(`subj${i}${ctx.chat.id}`, (ctx) => add_les(ctx, [ res[i] ], 0, is_mark));
 	}
 	await ctx.reply('По каким предметам вы хотите получить выписку?', Keyboard.make(arr).inline());
-	await ctx.reply(
+	let _a = await ctx.reply(
 		'За какой период вы хотите получить выписку?',
 		Keyboard.make([
-			Key.callback('Вся четверть', `q${ctx.chat.id}`),
-			Key.callback('Выбрать', `s${ctx.chat.id}`)
+			Key.callback('Вся четверть', `q${is_mark}-${ctx.chat.id}`),
+			Key.callback('Выбрать', `s${is_mark}-${ctx.chat.id}`)
 		]).inline()
 	);
-	bot.action(`q${ctx.chat.id}`, (ctx) => get_marks_list(ctx, last_holidays_day, last_quarter_day));
-	bot.action(`s${ctx.chat.id}`, (ctx) => get_period(ctx, 'get_marks', 'Узнать отметки'));
+	if (is_mark) {
+		bot.action(`q1-${ctx.chat.id}`, (ctx) => send_req(ctx, last_holidays_day, last_quarter_day, 1));
+		bot.action(`s1-${ctx.chat.id}`, (ctx) => get_period(ctx, 'get_marks', 'Узнать отметки'));
+	} else {
+		bot.action(`q0-${ctx.chat.id}`, (ctx) => send_req(ctx, last_holidays_day, last_quarter_day, (is_mark = 0)));
+		bot.action(`s0-${ctx.chat.id}`, (ctx) => get_period(ctx, 'get_hw', 'Узнать дз'));
+	}
 };
-let add_les = (ctx, subjs:Array<string>, all = 0) => {
+let add_les = (ctx, subjs: Array<string>, all = 0, is_mark) => {
+	let key = is_mark ? 'mark_requests' : 'hw_requests';
 	let id = ctx.chat.id.toString();
 	for (let subj of subjs) {
-		if (Object.keys(subj_requests).includes(id)) {
-			subj_requests[id].add(subj);
+		if (Object.keys(requests).includes(id)) {
+			requests[id][key].add(subj);
 		} else {
-			subj_requests[id] = new Set();
-			subj_requests[id].add(subj);
+			requests[id] = { mark_requests: new Set(), hw_requests: new Set() };
+			requests[id][key].add(subj);
 		}
 	}
+
 	if (!all) {
 		ctx.reply(`${subjs[0]} добавлен(а) к списку`);
 	} else {
 		ctx.reply(`Все предметы добавлены к списку`);
 	}
 };
-let get_marks = async (ctx, subj, s, e) => {
+let get_marks = async (ctx, subj, s, e, is_mark) => {
 	//await ctx.reply(`Запрос на выписку отправлен (${subj.toLowerCase()})`);
-	let s_marks = await marks_hw(mongo_url, ctx.chat.id, subj, s, e, true);
-	s_marks.sort((a, b) => {
+	let result = await marks_hw(mongo_url, ctx.chat.id, subj, s, e, is_mark ? true : false);
+	result.sort((a, b) => {
 		if (new Date(a[0]) > new Date(b[0])) return 1;
-		if (new Date(a[0]) == new Date(b[0])) return 0;
+		if (a[0] == b[0]) return 0;
 		if (new Date(a[0]) < new Date(b[0])) return -1;
 	});
 	let period =
@@ -226,10 +305,11 @@ let get_marks = async (ctx, subj, s, e) => {
 		(e.getMonth() + 1).toString();
 
 	let msg = subj + '\n' + period + '\n\n';
-	if (s_marks.length == 0) msg = `Оценок по ${subj.toLowerCase()} не выставлено`;
-	for (let i = 0; i < s_marks.length; i++) {
-		let els = s_marks[i];
-		msg += els[0] + ' - ' + els[1] + '\n';
+	if (is_mark && result.length == 0) msg = `Оценок по ${subj.toLowerCase()} не выставлено`;
+	if (!is_mark && result.length == 0) msg = `Дз по ${subj.toLowerCase()} не записано`;
+	for (let i = 0; i < result.length; i++) {
+		let res = result[i];
+		msg += res[0].split('-')[1] + '-' + res[0].split('-')[2] + ' - ' + res[1] + '\n';
 	}
 	ctx.reply(msg);
 };
@@ -270,7 +350,10 @@ let msg_i_login = async (ctx) => {
 			} else {
 				if (!ids.includes(id)) ids.push(id);
 				db_ids(mongo_url, ids);
-				ctx.reply('Вход выполнен успешно', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
+				ctx.reply(
+					'Вход выполнен успешно',
+					Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply()
+				);
 			}
 		}
 	}
@@ -278,13 +361,20 @@ let msg_i_login = async (ctx) => {
 
 let msg_update = async (ctx) => {
 	if (!ids.includes(ctx.chat.id)) {
-		await send_msg(ctx.chat.id, 'Вам нужно войти', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
+		await send_msg(
+			ctx.chat.id,
+			'Вам нужно войти',
+			Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply()
+		);
 		return;
 	}
 	await send_msg(ctx.chat.id, 'Информация обрабатывается, это может занять некоторое время');
 	let b = await check_for_updates(ctx.chat.id);
 	if (!b) {
-		ctx.reply('Изменений нет', Keyboard.make( [ ['Войти', 'Обновить'],[ 'Отметки' , 'Дз', 'Расписание']] ).reply());
+		ctx.reply(
+			'Изменений нет',
+			Keyboard.make([ [ 'Войти', 'Обновить' ], [ 'Отметки', 'Дз', 'Расписание' ] ]).reply()
+		);
 	}
 };
 
@@ -356,7 +446,6 @@ let check_for_updates = async (tg_id: string) => {
 	while (cr[0] == 1) {
 		cr = await login(creds[tg_id.toString()], tg_id);
 	}
-	// console.log(cr)
 	if (cr[0] == -1) {
 		send_msg(tg_id, 'Вам нужно перевойти');
 		ids.splice(ids.indexOf(tg_id), 1);
@@ -368,15 +457,15 @@ let check_for_updates = async (tg_id: string) => {
 		logger.debug('result length', res.length, 'res', JSON.stringify(res, null, 2));
 		res = await update_db(mongo_url, res, tg_id, tg_id.toString());
 		res.sort((a, b) => {
-			if (new Date(a[0]) > new Date(b[0])) return 1;
-			if (new Date(a[0]) == new Date(b[0])) return 0;
-			if (new Date(a[0]) < new Date(b[0])) return -1;
-		});
+			if (new Date(a[1]["date"]) > new Date(b[1]["date"])) return 1;
+			if (a[1]["date"] === b[1]["date"]) return 0;
+			if (new Date(a[1]["date"]) < new Date(b[1]["date"])) return -1;
+		})
 		//console.log(res, res.length);
 		for (let i = 0; i < res.length; i++) {
 			let pair = res[i];
 			let answ = configure_message(pair);
-			send_msg(tg_id, answ);
+			await send_msg(tg_id, answ);
 		}
 		return res.length != 0;
 	}
