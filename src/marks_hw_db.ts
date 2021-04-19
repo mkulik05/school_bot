@@ -23,7 +23,7 @@ let get_marks_hw = async (url: string, id: string, subj: string, start: Date, en
     }
     let req_key = is_mark ? "mark" : "hw" 
     await result.forEach((el)=>{
-      if (new Date(el.date) > start && new Date(el.date) < end) {
+      if (new Date(el.date) > new Date(start) && new Date(el.date) < new Date(end) || el.date === start || el.date === end) {
         let keys = Object.keys(el)
         for (let i = 0; i < keys.length; i++) {
           let key = keys[i]

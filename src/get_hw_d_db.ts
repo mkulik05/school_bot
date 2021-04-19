@@ -1,10 +1,10 @@
 import { create_log } from './logger';
-const logger = create_log('get_marks_db');
+const logger = create_log('get_hw_d_db');
 // const mongo_creds = require("./mongo_creds.json");
 import { MongoClient } from 'mongodb';
 const dbName = 'school_bot';
 
-let get_hw_d = async (url: string, id: string, start: Date, end: Date) => {
+let get_hw_d = async (url: string, id: string, start: string, end: string) => {
 	const client = new MongoClient(url, { useUnifiedTopology: true });
 	logger.info('created new mongo client');
 	try {
@@ -17,11 +17,12 @@ let get_hw_d = async (url: string, id: string, start: Date, end: Date) => {
 		let resp = [];
 		let result = await col.find({ date: { $exists: true } });
 		//console.log(typeof result)
+
 		if (result == null) {
 			return [];
 		}
 		await result.forEach((el) => {
-			if (new Date(el.date) >= start && new Date(el.date) <= end) {
+			if (new Date(el.date) >= new Date(start) && new Date(el.date) <= new Date(end) || el.date === start || el.date === end) {
 				let keys = Object.keys(el);
 				let unres = [ el.date, [] ];
 				for (let i = 0; i < keys.length; i++) {
@@ -37,7 +38,7 @@ let get_hw_d = async (url: string, id: string, start: Date, end: Date) => {
 		return resp;
 	} catch (err) {
 		logger.error('error', err.stack);
-		return [ 0, 0, 0 ];
+		return [ ];
 	} finally {
 		await client.close();
 	}

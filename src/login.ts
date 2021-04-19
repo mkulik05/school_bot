@@ -4,7 +4,7 @@ import {create_log} from "./logger"
 const logger = create_log("login")
 
 let login = async (creds: object, tg_id: string, token = '9NH0UsHHrvTUH49VRTWjY3v6xA8ltSUp'): Promise<[number, string, string]> => {
-	logger.info({ tg_id: tg_id }, 'called login function');
+	logger.info({ tg_id: tg_id }, 'called loдаin function');
 	logger.debug({ tg_id: tg_id }, `username = ${creds["login"]}`);
 	let json = '';
 	let err = 0; // 0 - everything OK, -1 - access denied
