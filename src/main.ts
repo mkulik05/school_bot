@@ -50,7 +50,6 @@ calendar.setDateListener((ctx, date) => {
 	let name = periods[id][msg_id];
 	let ind = periods[id][name]['msg_ids'].indexOf(msg_id);
 	logger.debug({ tg_id: ctx.chat.id }, `ind = ${ind}, name = ${name}, msg_id = ${msg_id}, periods[id] = ${JSON.stringify(periods[id], null, 2)}`)
-	//console.log(ind);
 	if (Object.keys(periods).includes(id)) {
 		if (!Object.keys(periods[id][name]).includes('periods')) {
 			periods[id][name]['periods'] = [ '', '' ];
@@ -218,7 +217,6 @@ let validate_dates = (ctx, name, nextFunc, is_mark) => {
 	logger.info({ tg_id: ctx.chat.id }, "validate dates called")
 	let id = ctx.chat.id.toString();
 	if (Object.keys(periods).includes(id)) {
-		console.log(JSON.stringify(periods[id], null, 2))
 		if (Object.keys(periods[id]).includes(name)) {
 			if (periods[id][name]['periods'][0] == '') ctx.reply('Вы не выбрали начальную дату');
 			if (periods[id][name]['periods'][1] == '') ctx.reply('Вы не выбрали конечную дату');
@@ -268,15 +266,14 @@ let send_req = (ctx, s, e, is_mark) => {
 let msg_marks_hw = async (ctx, is_mark) => {
 	logger.info({ tg_id: ctx.chat.id }, `called mst_marks_hw, is_mark = ${is_mark}`)
 	let res: Array<string> = await lessons(mongo_url, ctx.chat.id);
-	let arr = [ [ Key.callback('Все предметы', `all_subj${ctx.chat.id}`) ] ];
-	bot.action(`all_subj${ctx.chat.id}`, (ctx) => {
+	let arr = [ [ Key.callback('Все предметы', `all_subj${is_mark}${ctx.chat.id}`) ] ];
+	bot.action(`all_subj${is_mark}${ctx.chat.id}`, (ctx) => {
 		add_les(ctx, res, 1, is_mark);
 	});
 	for (let i = 0; i < res.length; i++) {
-		arr.push([ Key.callback(res[i], `subj${i}${ctx.chat.id}`) ]);
-		bot.action(`subj${i}${ctx.chat.id}`, (ctx) => {
+		arr.push([ Key.callback(res[i], `subj${is_mark}${i}${ctx.chat.id}`) ]);
+		bot.action(`subj${is_mark}${i}${ctx.chat.id}`, (ctx) => {
 			add_les(ctx, [ res[i] ], 0, is_mark);
-			console.log("added", res[i])
 		});
 	}
 	await ctx.reply('По каким предметам вы хотите получить выписку?', Keyboard.make(arr).inline());
@@ -291,24 +288,23 @@ let msg_marks_hw = async (ctx, is_mark) => {
 		bot.action(`q1-${ctx.chat.id}`, (ctx) => send_req(ctx, last_holidays_day, last_quarter_day, 1));
 		bot.action(`s1-${ctx.chat.id}`, (ctx) => get_period(ctx, 'get_marks', 'Узнать отметки'));
 	} else {
-		bot.action(`q0-${ctx.chat.id}`, (ctx) => send_req(ctx, last_holidays_day, last_quarter_day, (is_mark = 0)));
+		bot.action(`q0-${ctx.chat.id}`, (ctx) => send_req(ctx, last_holidays_day, last_quarter_day, 0));
 		bot.action(`s0-${ctx.chat.id}`, (ctx) => get_period(ctx, 'get_hw', 'Узнать дз'));
 	}
 };
 let add_les = (ctx, subjs: Array<string>, all, is_mark) => {
 	logger.info({ tg_id: ctx.chat.id }, `called add_les, all = ${all}, is_mark = ${is_mark}`)
 	logger.debug({ tg_id: ctx.chat.id }, `subjs = ${subjs}`)
-	let key = is_mark == 1 ? 'mark_requests' : 'hw_requests';
+	let key = is_mark ? 'mark_requests' : 'hw_requests';
 	let id = ctx.chat.id.toString();
 	for (let i = 0; i < subjs.length; i++) {
 		let subj = subjs[i]
 		if (Object.keys(requests).includes(id)) {
-			console.log(key, JSON.stringify(requests, null, 2), requests[id][key], requests[id][key].size)
+			
 			requests[id][key].add(subj);
 		} else {
 			requests[id] = { "mark_requests": new Set(), "hw_requests": new Set() };
 			requests[id][key].add(subj);
-			console.log(key, JSON.stringify(requests, null, 2), requests[id][key], requests[id][key].size)
 		}
 	}
 
@@ -507,7 +503,6 @@ let check_for_updates = async (tg_id: string) => {
 			if (a[1]['date'] === b[1]['date']) return 0;
 			if (new Date(a[1]['date']) < new Date(b[1]['date'])) return -1;
 		});
-		//console.log(res, res.length);
 		for (let i = 0; i < res.length; i++) {
 			let pair = res[i];
 			let answ = configure_message(pair, tg_id);
