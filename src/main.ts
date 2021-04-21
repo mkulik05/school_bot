@@ -48,29 +48,30 @@ calendar.setDateListener((ctx, date) => {
 	let id = ctx.chat.id.toString();
 	let msg_id = ctx.update.callback_query.message.message_id;
 	let name = periods[id][msg_id];
-	let ind = periods[id][name]['msg_ids'].indexOf(msg_id);
-	logger.debug({ tg_id: ctx.chat.id }, `ind = ${ind}, name = ${name}, msg_id = ${msg_id}, periods[id] = ${JSON.stringify(periods[id], null, 2)}`)
+	logger.debug({ tg_id: ctx.chat.id }, `name = ${name}, msg_id = ${msg_id}, periods[id] = ${JSON.stringify(periods[id], null, 2)}`)
 	if (Object.keys(periods).includes(id)) {
 		if (!Object.keys(periods[id][name]).includes('periods')) {
 			periods[id][name]['periods'] = [ '', '' ];
 		}
-		if (periods[id][name]['periods'][ind] == '') {
-			periods[id][name]['periods'][ind] = date;
+		if (periods[id][name]['periods'][0] == '') {
+			periods[id][name]['periods'][0] = date;
+			ctx.reply("Теперь выберите конечную дату")
+		} else if (periods[id][name]['periods'][1] == '') {
+			periods[id][name]['periods'][1] = date;
+			ctx.deleteMessage();
 		}
 	} else {
 		logger.debug({ tg_id: ctx.chat.id }, `obj "periods" don't include this id`)
 		periods[id][name] = {};
 		periods[id][name]['periods'] = [ '', '' ];
-		periods[id][name]['periods'][ind] = date;
+		periods[id][name]['periods'][0] = date;
 	}
-	ctx.deleteMessage();
 });
 
 let get_period = async (ctx, name, btn) => {
 	logger.info({ tg_id: ctx.chat.id }, `get period func called name = ${name}, btn = ${btn}`)
 	let id = ctx.chat.id.toString();
-	let res1 = await ctx.reply('Начальная дата:', calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar());
-	let res2 = await ctx.reply('Конечная дата:', calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar());
+	let res1 = await ctx.reply('Выберите период:', calendar.setMinDate(minDate).setMaxDate(maxDate).getCalendar());
 	if (!Object.keys(periods).includes(id)) {
 		logger.debug({ tg_id: ctx.chat.id }, `obj "periods" don't include this id`)
 		periods[id] = {};
@@ -81,9 +82,7 @@ let get_period = async (ctx, name, btn) => {
 		periods[id][name] = {};
 		periods[id][name]['periods'] = [ '', '' ];
 	}
-	periods[id][name]['msg_ids'] = [ res1['message_id'], res2['message_id'] ];
 	periods[id][res1['message_id']] = name;
-	periods[id][res2['message_id']] = name;
 	logger.debug({ tg_id: ctx.chat.id}, `periods[id][name] - ${JSON.stringify(periods[id][name])}`)
 	await ctx.reply(`После выбора дат, нажмите '${btn}'`, Keyboard.make([ [ 'Главная', btn ] ]).reply());
 };
@@ -154,7 +153,7 @@ let get_hw_d = async (ctx, s, e) => {
 		let msg = res[i][0].split('-')[1] + '-' + res[i][0].split('-')[2] + '\n\n';
 		for (let b = 0; b < res[i][1].length; b++) {
 			let line = res[i][1][b];
-			msg += ` ${b + 1}. ` + line[0] + ' - ' + (line[1] == '' ? 'Дз не выставлено' : line[1]) + '\n';
+			msg += ` ${b + 1}. ` + line[0] + ' - ' + (line[1] == '' ? 'не выставлено' : line[1]) + '\n';
 		}
 		await send_msg(
 			ctx.chat.id,
@@ -270,8 +269,13 @@ let msg_marks_hw = async (ctx, is_mark) => {
 	bot.action(`all_subj${is_mark}${ctx.chat.id}`, (ctx) => {
 		add_les(ctx, res, 1, is_mark);
 	});
+	let line = []
 	for (let i = 0; i < res.length; i++) {
-		arr.push([ Key.callback(res[i], `subj${is_mark}${i}${ctx.chat.id}`) ]);
+		line.push(Key.callback(res[i], `subj${is_mark}${i}${ctx.chat.id}`));
+		if (i % 3 == 0) {
+			arr.push(line)
+			line = []
+		}
 		bot.action(`subj${is_mark}${i}${ctx.chat.id}`, (ctx) => {
 			add_les(ctx, [ res[i] ], 0, is_mark);
 		});
@@ -457,7 +461,7 @@ let find_changes = (obj1, obj2, tg_id, skip_keys = [ '_id' ]) => {
 	logger.debug('obj1', JSON.stringify(obj1, null, 2), 'obj2', JSON.stringify(obj2, null, 2), 'result:', changes);
 	return changes;
 };
-bot.help((ctx) => ctx.reply("I'm alive"));
+bot.help((ctx) => ctx.reply("Для начала нужно войти, для всех функций есть одноимённые кнопки в нижней части экрана.\n Бот периодически автоматически проверяет изменения в дневнике"));
 let configure_message = (pair, tg_id) => {
 	logger.info({ tg_id: tg_id }, `configure_message called`)
 	let date = pair[0].date.split('-');
