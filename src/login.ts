@@ -65,8 +65,6 @@ let login = async (creds: object, tg_id: string, token = '9NH0UsHHrvTUH49VRTWjY3
 	try {
 		await request(options, callback);
 	} catch (e) {
-		//console.log("planned err");
-		//console.log(json)
 		logger.error({ tg_id: tg_id }, ' error ', e);
 	}
 	if (json != '' && err != -1) {
@@ -92,7 +90,7 @@ let login = async (creds: object, tg_id: string, token = '9NH0UsHHrvTUH49VRTWjY3
 	}
 };
 
-let logout = (sessionID: string, tg_id: string) => {
+let logout = (sessionID: string, tg_id: string, n = 0) => {
 	logger.info(`called logout func {tg_id=${tg_id}}`);
 	var headers = {
 		cookie: 'sessionid=' + sessionID
@@ -116,7 +114,12 @@ let logout = (sessionID: string, tg_id: string) => {
 			logger.error({ tg_id: tg_id }, ` error in logout request callback`, error);
 		}
 	}
-
-	request(options, callback);
+	try {
+		request(options, callback);
+	} catch (err) {
+		logger.error(`error in logout request: ${err}\niteration=${n}`)
+		logout(sessionID, tg_id, n + 1)
+	}
+	
 };
 export {login, logout}

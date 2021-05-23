@@ -1,7 +1,7 @@
 import * as request from 'request-promise';
 import {create_log} from "./logger"
 const logger = create_log("get_html")
-let get_html = async (id: string, path: string) => {
+let get_html = async (id: string, path: string, n = 0) => {
 	logger.info(`called function get_html, path = ${path}`);
 	let headers = {
 		cookie: 'sessionid=' + id
@@ -23,8 +23,14 @@ let get_html = async (id: string, path: string) => {
 			logger.error(`error in request callback: ${error}`);
 		}
 	};
-
-	await request(options, callback);
+	try {
+		await request(options, callback);
+	} catch (err) {
+		logger.error(`error in request: ${err}\niteration=${n}`);
+		let answ = await get_html (id, path, n + 1)
+		return answ
+	}
+	
 	id = '';
 	logger.info('return responce body');
 	return resp;
