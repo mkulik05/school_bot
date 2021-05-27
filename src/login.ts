@@ -36,6 +36,10 @@ let login = async (creds: object, tg_id: string, token = '9NH0UsHHrvTUH49VRTWjY3
 			return;
 		} else {
 			logger.info({ tg_id: tg_id }, `called login request callback, status code `, response["statusCode"]);
+			if (![200, 302].includes(response["statusCode"])) {
+				logger.error({ tg_id: tg_id}, `login failed`)
+				return;
+			}
 		}
 		logger.debug({ tg_id: tg_id }, 'responce', JSON.stringify(response, null, 2));
 		if (!error) {
@@ -67,7 +71,7 @@ let login = async (creds: object, tg_id: string, token = '9NH0UsHHrvTUH49VRTWjY3
 	} catch (e) {
 		logger.error({ tg_id: tg_id }, ' error ', e);
 	}
-	if (json != '' && err != -1) {
+	if (json != '' && err !== -1) {
 		logger.info({ tg_id: tg_id }, 'start parsering json to get session ID');
 		try {
 			let sessionid: string = json['set-cookie'][1].split(';')[0].split('=')[1];
@@ -79,9 +83,10 @@ let login = async (creds: object, tg_id: string, token = '9NH0UsHHrvTUH49VRTWjY3
 			return [ 0, sessionid, id ];
 		} catch (e) {
 			logger.error({ tg_id: tg_id }, 'error in parsering resp json ', e);
+			return [ 1, "", "" ];
 		}
 	} else {
-		if (err == -1) {
+		if (err === -1) {
 			logger.warn({ tg_id: tg_id }, 'access denied');
 			return [-1, "", ""];
 		}
