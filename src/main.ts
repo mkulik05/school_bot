@@ -47,9 +47,9 @@ calendar.setDateListener((ctx, date) => {
 	logger.info({ tg_id: ctx.chat.id }, `called date listener`)
 	let id = ctx.chat.id.toString();
 	let msg_id = ctx.update.callback_query.message.message_id;
-	let name = periods[id][msg_id];
-	logger.debug({ tg_id: ctx.chat.id }, `name = ${name}, msg_id = ${msg_id}, periods[id] = ${JSON.stringify(periods[id], null, 2)}`)
 	if (Object.keys(periods).includes(id)) {
+		let name = periods[id][msg_id];
+		logger.debug({ tg_id: ctx.chat.id }, `name = ${name}, msg_id = ${msg_id}, periods[id] = ${JSON.stringify(periods[id], null, 2)}`)
 		if (!Object.keys(periods[id][name]).includes('periods')) {
 			periods[id][name]['periods'] = [ '', '' ];
 		}
@@ -62,9 +62,7 @@ calendar.setDateListener((ctx, date) => {
 		}
 	} else {
 		logger.debug({ tg_id: ctx.chat.id }, `obj "periods" don't include this id`)
-		periods[id][name] = {};
-		periods[id][name]['periods'] = [ '', '' ];
-		periods[id][name]['periods'][0] = date;
+		periods[id] = {}
 	}
 });
 
