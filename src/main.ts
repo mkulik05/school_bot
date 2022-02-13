@@ -342,11 +342,18 @@ let get_marks = async (ctx, subj, s, e, is_mark) => {
 	let msg = subj + '\n' + period + '\n\n';
 	if (is_mark && result.length == 0) msg = `Оценок по ${subj.toLowerCase()} не выставлено`;
 	if (!is_mark && result.length == 0) msg = `Дз по ${subj.toLowerCase()} не записано`;
+	let all = []
 	for (let i = 0; i < result.length; i++) {
 		let res = result[i];
+		
 		msg += res[0].split('-')[1] + '-' + res[0].split('-')[2] + ' - ' + res[1] + '\n';
+		all.push(res[1])
 	}
-	ctx.reply(msg);
+	if (is_mark){
+		ctx.reply(msg + `Средний балл - ${all.reduce((a, b) => (a + b)) / all.length}`);
+	} else {
+		ctx.reply(msg);
+	}
 };
 let send_msg = async (id, text, keyb?) => {
 	await bot.telegram
