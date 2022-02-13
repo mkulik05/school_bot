@@ -13,8 +13,8 @@ import { update_db } from './db';
 import { create_log } from './logger';
 const logger = create_log('main');
 
-const last_holidays_day = '2021-04-05';
-const last_quarter_day = '2021-05-31';
+const last_holidays_day = '2022-01-09';
+const last_quarter_day = '2022-03-25';
 const bot = new Telegraf(bot_token.token);
 const calendar = new Calendar(bot);
 let mongo_url = '';
@@ -44,7 +44,7 @@ bot.start((ctx) => {
 });
 
 calendar.setDateListener((ctx, date) => {
-	logger.info({ tg_id: ctx.chat.id }, `called date listener`)
+	logger.info({ tg_id: ctx.chat.id }, `called date listener6`)
 	let id = ctx.chat.id.toString();
 	let msg_id = ctx.update.callback_query.message.message_id;
 	if (Object.keys(periods).includes(id)) {
@@ -496,7 +496,7 @@ let check_for_updates = async (tg_id: string) => {
 	} else {
 		let id = cr[1];
 		let pupil_link = cr[2];
-		let res = await get_data(new Date(last_holidays_day), new Date(last_quarter_day), 44, id, pupil_link, tg_id);
+		let res = await get_data(new Date(last_holidays_day), new Date(last_quarter_day), 56, id, pupil_link, tg_id);
 		logout(id, tg_id);
 		logger.debug({ tg_id: tg_id }, 'result length', res.length, 'res', JSON.stringify(res, null, 2));
 		res = await update_db(mongo_url, res, tg_id, tg_id.toString());
