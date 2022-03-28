@@ -11,10 +11,12 @@ import { get_marks_hw as marks_hw } from './marks_hw_db';
 import { get_hw_d as hw_d } from './get_hw_d_db';
 import { update_db } from './db';
 import { create_log } from './logger';
+import { get_current_quarter_id, get_quarter_borders } from './get_quarter_borders';
 const logger = create_log('main');
 
-const last_holidays_day = '2022-01-09';
-const last_quarter_day = '2022-03-25';
+let first_quarter_day = '2022-01-09';
+let last_quarter_day = '2022-03-25';
+let quarter_id = 56
 const bot = new Telegraf(bot_token.token);
 const calendar = new Calendar(bot);
 let mongo_url = '';
@@ -44,7 +46,7 @@ bot.start((ctx) => {
 });
 
 calendar.setDateListener((ctx, date) => {
-	logger.info({ tg_id: ctx.chat.id }, `called date listener6`)
+	logger.info({ tg_id: ctx.chat.id }, `called date listener`)
 	let id = ctx.chat.id.toString();
 	let msg_id = ctx.update.callback_query.message.message_id;
 	if (Object.keys(periods).includes(id)) {
@@ -287,10 +289,10 @@ let msg_marks_hw = async (ctx, is_mark) => {
 		]).inline()
 	);
 	if (is_mark) {
-		bot.action(`q1-${ctx.chat.id}`, (ctx) => send_req(ctx, last_holidays_day, last_quarter_day, 1));
+		bot.action(`q1-${ctx.chat.id}`, (ctx) => send_req(ctx, first_quarter_day, last_quarter_day, 1));
 		bot.action(`s1-${ctx.chat.id}`, (ctx) => get_period(ctx, 'get_marks', 'Узнать отметки'));
 	} else {
-		bot.action(`q0-${ctx.chat.id}`, (ctx) => send_req(ctx, last_holidays_day, last_quarter_day, 0));
+		bot.action(`q0-${ctx.chat.id}`, (ctx) => send_req(ctx, first_quarter_day, last_quarter_day, 0));
 		bot.action(`s0-${ctx.chat.id}`, (ctx) => get_period(ctx, 'get_hw', 'Узнать дз'));
 	}
 };
@@ -489,21 +491,36 @@ let configure_message = (pair, tg_id) => {
 	}
 	return answ;
 };
-let check_for_updates = async (tg_id: string) => {
-	logger.info({ tg_id: tg_id }, 'chech_for_updates called');
+let login_easy = async (tg_id: string) => {
 	let cr: [number, string, string] = [1, '', ''];
-	while (cr[0] == 1) {
+	while (cr[0] === 1) {
 		cr = await login(creds[tg_id.toString()], tg_id);
-		logger.info({ tg_id: tg_id }, `relogin`)
+		logger.info({ tg_id: tg_id }, `login...`)
 	}
 	if (cr[0] == -1) {
 		send_msg(tg_id, 'Вам нужно перевойти');
 		ids.splice(ids.indexOf(tg_id), 1);
+		return [0, "", ""]
 	} else {
 		let id = cr[1];
 		let pupil_link = cr[2];
-		let res = await get_data(new Date(last_holidays_day), new Date(last_quarter_day), 56, id, pupil_link, tg_id);
-		logout(id, tg_id);
+		let res: [number, string, string] = [1, id, pupil_link]
+		return res
+
+
+	}
+}
+
+let check_for_updates = async (tg_id: string) => {
+	logger.info({ tg_id: tg_id }, 'chech_for_updates called');
+
+	let r = await login_easy(tg_id)
+	let ok = r[0]
+	let id = r[1]
+	let pupil_link = r[2]
+	if (ok) {
+		let res = await get_data(new Date(first_quarter_day), new Date(last_quarter_day), quarter_id, id, pupil_link, tg_id);
+		logout(id.toString(), tg_id);
 		logger.debug({ tg_id: tg_id }, 'result length', res.length, 'res', JSON.stringify(res, null, 2));
 		res = await update_db(mongo_url, res, tg_id, tg_id.toString());
 		res.sort((a, b) => {
@@ -518,22 +535,47 @@ let check_for_updates = async (tg_id: string) => {
 		}
 		return res.length != 0;
 	}
+
 };
 
+let update_borders = async () => {
+	if (ids.length > 0) {
+		let tg_id = ids[0]
+		let r = await login_easy(tg_id)
+		let ok = r[0]
+		if (ok) {
+			let session_id = r[1]
+			let pupil_link = r[2]
+			let quater_id = await get_current_quarter_id(session_id.toString(), pupil_link.toString())
+			let borders = await get_quarter_borders(session_id, pupil_link, quater_id, tg_id)
+			first_quarter_day = borders.start
+			last_quarter_day = borders.end
+			logout(session_id.toString(), tg_id)
+		}
+	}
+}
+let i = 0
 let init = async () => {
 	logger.info("called init")
 	ids = await db_ids(mongo_url);
 	creds = await db_creds(mongo_url);
+	await update_borders()
 	for (let i = 0; i < ids.length; i++) {
 		check_for_updates(ids[i]);
 	}
 	setInterval(async () => {
+		i += 1
+		if (i > 100) {
+			await update_borders()
+			i = 0
+		}
 		ids = await db_ids(mongo_url);
 		for (let i = 0; i < ids.length; i++) {
 			check_for_updates(ids[i]);
 		}
 	}, 1000 * 60 * 2);
 };
+
 
 init();
 bot.launch();

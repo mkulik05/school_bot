@@ -1,38 +1,33 @@
-import * as request from 'request-promise';
-import {create_log} from "./logger"
+import fetch from 'node-fetch';
+import { create_log } from "./logger"
 const logger = create_log("get_html")
+
 let get_html = async (id: string, path: string, n = 0) => {
 	logger.info(`called function get_html, path = ${path}`);
-	let headers = {
-		cookie: 'sessionid=' + id
-	};
-	let resp = "";
-	let options = {
-		url: path,
-		headers: headers
-	};
-	let callback = (error, res: object, body: string) => {
-		if (typeof res == "undefined") {
-			logger.error('called request callback, response is undefined, body', body, "error -", error);
-			return;
-		}
-		logger.info('called request callback, response status code ', res['statusCode']);
-		if (!error && res['statusCode'] !== 404) {
-			resp = body;
-		} else {
-			logger.error(`error in request callback: ${error}`);
-		}
-	};
+	let resp
 	try {
-		await request(options, callback);
+		let res = await fetch(path, {
+			"headers": {
+				"cookie": 'sessionid=' + id
+			},
+			"method": "GET"
+		});
+		let statusCode = res.status
+		res = await res.text();
+		resp = res
+		// console.log(res, statusCode) 
+		logger.info('Status code: ', statusCode);
+		if (statusCode === 404) {
+			resp = ''
+		}
+		logger.info('return responce body');
+
+		return resp;
 	} catch (err) {
-		logger.error(`error in request: ${err}\niteration=${n}`);
-		let answ = await get_html (id, path, n + 1)
+		console.log("errrr", err)
+		logger.error('error during request', `error - ${err}, initeration=${n}`);
+		let answ = await get_html(id, path, n + 1)
 		return answ
 	}
-	
-	id = '';
-	logger.info('return responce body');
-	return resp;
 };
-export {get_html};
+export { get_html };

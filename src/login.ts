@@ -1,10 +1,10 @@
 import * as request from 'request-promise';
 
-import {create_log} from "./logger"
+import { create_log } from "./logger"
 const logger = create_log("login")
 
 let login = async (creds: object, tg_id: string, token = '9NH0UsHHrvTUH49VRTWjY3v6xA8ltSUp'): Promise<[number, string, string]> => {
-	logger.info({ tg_id: tg_id }, 'called loдаin function');
+	logger.info({ tg_id: tg_id }, 'called login function');
 	logger.debug({ tg_id: tg_id }, `username = ${creds["login"]}`);
 	let json = '';
 	let err = 0; // 0 - everything OK, -1 - access denied
@@ -37,7 +37,7 @@ let login = async (creds: object, tg_id: string, token = '9NH0UsHHrvTUH49VRTWjY3
 		} else {
 			logger.info({ tg_id: tg_id }, `called login request callback, status code `, response["statusCode"]);
 			if (![200, 302].includes(response["statusCode"])) {
-				logger.error({ tg_id: tg_id}, `login failed`)
+				logger.error({ tg_id: tg_id }, `login failed`)
 				return;
 			}
 		}
@@ -77,13 +77,13 @@ let login = async (creds: object, tg_id: string, token = '9NH0UsHHrvTUH49VRTWjY3
 			let sessionid: string = json['set-cookie'][1].split(';')[0].split('=')[1];
 			let id: string = json['location']
 			if (typeof id == "undefined") {
-				return [ 1, "", "" ];
+				return [1, "", ""];
 			}
 			logger.info({ tg_id: tg_id }, 'json parsed successfully');
-			return [ 0, sessionid, id ];
+			return [0, sessionid, id];
 		} catch (e) {
 			logger.error({ tg_id: tg_id }, 'error in parsering resp json ', e);
-			return [ 1, "", "" ];
+			return [1, "", ""];
 		}
 	} else {
 		if (err === -1) {
@@ -107,7 +107,7 @@ let logout = (sessionID: string, tg_id: string, n = 0) => {
 	};
 
 	function callback(error: string, response: object, body: string) {
-		if (typeof response == 'undefined'){
+		if (typeof response == 'undefined') {
 			logger.info({ tg_id: tg_id }, 'called logout request callback, responce is undefined, error', error);
 			return;
 		}
@@ -125,6 +125,6 @@ let logout = (sessionID: string, tg_id: string, n = 0) => {
 		logger.error(`error in logout request: ${err}\niteration=${n}`)
 		logout(sessionID, tg_id, n + 1)
 	}
-	
+
 };
-export {login, logout}
+export { login, logout }
