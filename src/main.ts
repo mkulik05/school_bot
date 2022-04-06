@@ -546,8 +546,8 @@ let update_borders = async () => {
 		if (ok) {
 			let session_id = r[1]
 			let pupil_link = r[2]
-			let quater_id = await get_current_quarter_id(session_id.toString(), pupil_link.toString())
-			let borders = await get_quarter_borders(session_id, pupil_link, quater_id, tg_id)
+			quarter_id = await get_current_quarter_id(session_id.toString(), pupil_link.toString())
+			let borders = await get_quarter_borders(session_id, pupil_link, quarter_id, tg_id)
 			first_quarter_day = borders.start
 			last_quarter_day = borders.end
 			logout(session_id.toString(), tg_id)
